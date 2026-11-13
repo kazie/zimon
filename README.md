@@ -26,6 +26,10 @@ Or grab a binary for Linux (amd64/arm64) or macOS from the
 [releases page](https://github.com/kazie/zimon/releases). It is a single static
 file with no dependencies; the archive also has shell completions and a man page.
 
+macOS support is in beta: the binaries are built for it, but nobody has tried
+them on a Mac yet (nor the kiwix-serve that `zimon serve` fetches there).
+Reports are welcome.
+
 With Nix: `nix run github:kazie/zimon -- search wikipedia`, or add the flake's
 `packages.default` to your system (with completions and `man zimon`).
 
