@@ -32,7 +32,7 @@ const (
 // Config is the on-disk configuration.
 type Config struct {
 	LibraryDir    string         `toml:"library_dir" comment:"Where ZIM files and library.xml live."`
-	StateDir      string         `toml:"state_dir" comment:"Where zimon keeps its database and lock file."`
+	StateDir      string         `toml:"state_dir" comment:"Where zimon keeps its database and lock file, and kiwix-serve when zimon serve fetches it."`
 	LibraryFile   string         `toml:"library_file" comment:"What the library should contain (collections, levels, hand-picked ZIMs). Empty means library.toml next to this file."`
 	Languages     []string       `toml:"languages" comment:"Languages shown by default in search and browse (ISO 639-3, e.g. eng, swe). Empty means all."`
 	KeepVersions  int            `toml:"keep_versions" comment:"How many versions of each ZIM to keep after an update (1 = only the newest)."`
@@ -80,7 +80,7 @@ type ServeConfig struct {
 	Address        string `toml:"address" comment:"Address zimon serve listens on: 127.0.0.1 = this machine only, all = every network interface, or one IP."`
 	Port           int    `toml:"port"`
 	AdminPort      int    `toml:"admin_port" comment:"Port of the admin page, on the same address. 0 means port + 1. Books never share its port, so their scripts can't reach it."`
-	KiwixServePath string `toml:"kiwix_serve_path" comment:"Path to kiwix-serve. Empty means look it up on PATH."`
+	KiwixServePath string `toml:"kiwix_serve_path" comment:"Path to kiwix-serve. Empty: the one on PATH, else Kiwix's own build, which zimon serve fetches into state_dir."`
 }
 
 // Default returns the built-in defaults.

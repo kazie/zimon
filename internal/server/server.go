@@ -31,9 +31,15 @@ import (
 // Server serves the portal and passes everything else to kiwix-serve.
 type Server struct {
 	Manager *library.Manager
-	Bin     string                           // kiwix-serve; "" when it is not installed
 	Logf    func(format string, args ...any) // what happens to kiwix-serve; nil: quiet
 	Version string                           // zimon's, for GET /api/v1/info
+	// Fetch gets kiwix-serve when it isn't installed; Run keeps trying until
+	// it works. nil: books can't be opened until zimon serve starts again.
+	Fetch func(ctx context.Context) (string, error)
+
+	bin      atomic.Pointer[string]          // kiwix-serve; "" while it is missing
+	fetchErr atomic.Pointer[error]           // why Fetch gave up
+	retry    func(attempt int) time.Duration // wait before fetch number attempt+1
 
 	start     func(ctx context.Context, addr string) (*proc, error) // runs kiwix-serve; tests replace it
 	backoff   func(attempt int) time.Duration                       // wait before restart number attempt
@@ -53,7 +59,8 @@ type proc struct {
 
 // New is a Server for m, running kiwix-serve from bin ("" if missing).
 func New(m *library.Manager, bin string) *Server {
-	s := &Server{Manager: m, Bin: bin, backoff: download.Backoff}
+	s := &Server{Manager: m, backoff: download.Backoff, retry: fetchRetry}
+	s.bin.Store(&bin)
 	s.start = s.startKiwix
 	s.jobs.wake = make(chan struct{}, 1)
 	s.jobs.subs = map[chan api.Event]struct{}{}
@@ -136,6 +143,13 @@ func (s *Server) Run(ctx context.Context, ln, admin net.Listener) error {
 		return fmt.Errorf("another zimon serve is running with %s", s.Manager.Cfg.StateDir)
 	}
 	defer unlockServe()
+	// No other zimon serve uses this state directory now, so what older
+	// releases fetched (and fetches that were stopped) can go.
+	for _, p := range kiwix.Old(s.Manager.Cfg.StateDir) {
+		if err := os.RemoveAll(p); err != nil {
+			s.logf("%v", err)
+		}
+	}
 	// Jobs a previous run left behind will not run now; say so in their history.
 	bg := context.WithoutCancel(ctx)
 	if err := s.Manager.Store.InterruptJobs(bg); err != nil {
@@ -153,8 +167,15 @@ func (s *Server) Run(ctx context.Context, ln, admin net.Listener) error {
 	}
 
 	var wg sync.WaitGroup
-	if s.Bin != "" {
+	switch {
+	case s.kiwixBin() != "":
 		wg.Go(func() { s.supervise(ctx) })
+	case s.Fetch != nil:
+		wg.Go(func() {
+			if s.fetchKiwix(ctx) {
+				s.supervise(ctx)
+			}
+		})
 	}
 	s.jobs.stopped = ctx.Done()
 	wg.Go(func() { s.work(ctx) })
@@ -192,6 +213,44 @@ func newHTTPServer(h http.Handler) *http.Server {
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 		// No WriteTimeout: a book's video or a big download may take a while.
+	}
+}
+
+// kiwixBin is kiwix-serve, or "" while it is missing.
+func (s *Server) kiwixBin() string { return *s.bin.Load() }
+
+// fetchRetry waits a minute after the first failed fetch, doubling up to an
+// hour: the archive is 10–20 MB.
+func fetchRetry(attempt int) time.Duration { return min(time.Minute<<min(attempt, 6), time.Hour) }
+
+// fetchTries is how often fetchKiwix tries: over about a day with fetchRetry.
+const fetchTries = 30
+
+// fetchKiwix gets kiwix-serve with Fetch, trying again for a while, until it
+// works (true), gives up or ctx ends (false).
+func (s *Server) fetchKiwix(ctx context.Context) bool {
+	for attempt := 0; ; attempt++ {
+		bin, err := s.Fetch(ctx)
+		if err == nil {
+			s.logf("Fetched kiwix-serve: %s", bin)
+			s.bin.Store(&bin)
+			return true
+		}
+		if ctx.Err() != nil {
+			return false
+		}
+		if attempt+1 >= fetchTries {
+			s.fetchErr.Store(&err)
+			s.logf("Fetching kiwix-serve failed (%v); giving up until zimon serve starts again", err)
+			return false
+		}
+		wait := s.retry(attempt)
+		s.logf("Fetching kiwix-serve failed (%v); trying again in %s", err, wait)
+		select {
+		case <-time.After(wait):
+		case <-ctx.Done():
+			return false
+		}
 	}
 }
 
@@ -241,7 +300,7 @@ func (s *Server) startKiwix(ctx context.Context, addr string) (*proc, error) {
 		return nil, err
 	}
 	args := kiwix.Args(kiwix.Options{Library: s.Manager.Cfg.LibraryXMLPath(), Address: "127.0.0.1", Port: port, AttachPID: os.Getpid()})
-	cmd := exec.CommandContext(ctx, s.Bin, args...)
+	cmd := exec.CommandContext(ctx, s.kiwixBin(), args...)
 	cmd.Stdout = io.Discard // it announces its private address, which nobody should use
 	cmd.Stderr = logWriter{s}
 	ownGroup(cmd) // Ctrl-C is for zimon, which then stops kiwix-serve itself
@@ -314,12 +373,23 @@ func localRedirects(resp *http.Response) error {
 	return nil
 }
 
+// fetching reports whether Fetch is getting kiwix-serve: it is missing, and
+// Fetch hasn't given up.
+func (s *Server) fetching() bool {
+	return s.kiwixBin() == "" && s.Fetch != nil && s.fetchErr.Load() == nil
+}
+
 // kiwixProblem says why books can't be read right now, or "" if they can.
 func (s *Server) kiwixProblem() string {
 	switch {
-	case s.Bin == "":
-		return "kiwix-serve is not installed, so books can't be opened yet. Install kiwix-tools (your distro's package, " +
-			"https://download.kiwix.org/release/kiwix-tools/, or nix shell nixpkgs#kiwix-tools) and restart zimon serve."
+	case s.fetching():
+		return "kiwix-serve is being fetched from Kiwix; books open once it is here."
+	case s.kiwixBin() == "":
+		why := "kiwix-serve is not installed"
+		if err := s.fetchErr.Load(); err != nil {
+			why = fmt.Sprintf("Fetching kiwix-serve failed (%v)", *err)
+		}
+		return why + ", so books can't be opened. To fix it, " + kiwix.InstallHint + "; then restart zimon serve."
 	case s.upstream.Load() == nil:
 		return "kiwix-serve is starting; books open in a moment."
 	}
@@ -336,7 +406,7 @@ func (s *Server) unavailable(w http.ResponseWriter, code int) {
 func (s *Server) status(w http.ResponseWriter, _ *http.Request) {
 	kiwixState := "up"
 	switch {
-	case s.Bin == "":
+	case s.kiwixBin() == "" && !s.fetching():
 		kiwixState = "missing"
 	case s.upstream.Load() == nil:
 		kiwixState = "down"

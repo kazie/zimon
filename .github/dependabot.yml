@@ -1,6 +1,7 @@
 # Weekly update PRs for Go modules, the GitHub Actions in .github/workflows,
 # and the container base images in the Containerfile (Go, kiwix-serve).
 # After a gomod update, run `nix build` and fix vendorHash in flake.nix.
+# After a kiwix-serve update, run `just pin-kiwix`.
 version: 2
 updates:
   - package-ecosystem: gomod

@@ -9,6 +9,7 @@
 //	GET  /zim/<cat>/<file>.zim        the file (canonical URL)
 //	GET  /mirrorN/zim/<cat>/<file>.zim  the file from mirror N (1-based)
 //	GET  /own/<file>                  a ZIM someone built, on a plain web server (see PutOwn)
+//	GET  /release/kiwix-tools/<KiwixToolsArchive>  a stand-in kiwix-tools archive
 //	POST /_fake/bump?name=&flavour=   publish a newer release of a book
 //	POST /_fake/throttle?rate=6MB     change the per-connection speed limit
 package fakekiwix
@@ -91,6 +92,7 @@ type Server struct {
 	noRange  map[int]bool      // mirrors that ignore Range
 	hits     map[string]int
 	own      map[string]ownFile // by file name
+	badTools bool               // the kiwix-tools archive arrives with a byte wrong
 }
 
 type ownFile struct {
@@ -278,6 +280,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.SetThrottle(bps)
 	case strings.HasPrefix(p, "/own/"):
 		s.serveOwn(w, r)
+	case strings.HasPrefix(p, "/release/kiwix-tools/"):
+		s.serveKiwixTools(w, r)
 	case strings.HasSuffix(p, ".zim.meta4"):
 		s.serveMeta4(w, r)
 	case strings.HasSuffix(p, ".zim"):

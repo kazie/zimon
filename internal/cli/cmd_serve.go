@@ -2,8 +2,10 @@ package cli
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"net"
+	"path/filepath"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -35,7 +37,8 @@ scripts inside books can't reach it.
 
 --plain runs kiwix-serve alone in zimon's place, without the start page.
 
-kiwix-serve comes from kiwix-tools; it is not bundled with zimon.`,
+kiwix-serve comes from kiwix-tools: the one on your PATH, or else Kiwix's
+own build, which zimon serve fetches once into the state directory.`,
 		Example: `  zimon serve
   zimon serve --address all    # share it on your network
   zimon serve --port 8888
@@ -65,29 +68,17 @@ kiwix-serve comes from kiwix-tools; it is not bundled with zimon.`,
 				adminPort = cmp.Or(a.cfg.Serve.AdminPort, port+1)
 			}
 			opts := kiwix.Options{Library: a.cfg.LibraryXMLPath(), Address: address, Port: port}
-			bin, findErr := kiwix.Find(a.cfg.Serve.KiwixServePath)
 			if printOnly {
-				if findErr != nil {
+				bin, err := a.kiwixFetcher().Locate(a.cfg.Serve.KiwixServePath, a.cfg.StateDir)
+				if err != nil && !errors.Is(err, kiwix.ErrNotFetched) { // that one is where --plain fetches it
 					bin = "kiwix-serve"
 				}
 				a.out.Println(shell.Quote(append([]string{bin}, kiwix.Args(opts)...)))
 				return nil
 			}
-			if errors.Is(findErr, kiwix.ErrNotInstalled) {
-				if plain {
-					a.out.Fail("kiwix-serve is not installed")
-				} else {
-					a.out.Warn("kiwix-serve is not installed, so books can't be opened yet")
-				}
-				a.out.Hint("  Install kiwix-tools: your distro's kiwix-tools package, the static binaries from")
-				a.out.Hint("  https://download.kiwix.org/release/kiwix-tools/, or: nix shell nixpkgs#kiwix-tools")
-				a.out.Hint("  Or set serve.kiwix_serve_path in %s", ui.Tilde(a.cfgPath))
-				if plain {
-					return errSilent
-				}
-				bin = ""
-			} else if findErr != nil {
-				return findErr
+			bin, fetch, err := a.kiwixServe(ctx, plain)
+			if err != nil {
+				return err
 			}
 			if len(files) == 0 {
 				a.out.Warn("Your library is empty; books show up as you add them.")
@@ -121,6 +112,10 @@ kiwix-serve comes from kiwix-tools; it is not bundled with zimon.`,
 				return kiwix.Exec(bin, kiwix.Args(opts))
 			}
 			srv := server.New(m, bin)
+			if fetch != nil {
+				srv.Fetch = fetch
+				a.out.Hint("Fetching kiwix-serve %s from Kiwix; books open once it is here.", kiwix.Version)
+			}
 			srv.Version = a.version
 			srv.Logf = func(format string, args ...any) { a.out.Hint(format, args...) }
 			switch {
@@ -155,4 +150,53 @@ func listenAddr(address string, port int) string {
 		return "[::]:" + p
 	}
 	return net.JoinHostPort(address, p)
+}
+
+// kiwixFetcher is a.kiwix with zimon's HTTP client, rate limit and backoff.
+func (a *app) kiwixFetcher() kiwix.Fetcher {
+	f := a.kiwix
+	f.Client, f.RateLimit, f.Backoff = a.httpClient(), int64(a.cfg.Download.RateLimit), a.backoff
+	return f
+}
+
+// kiwixServe finds kiwix-serve for serve. When it isn't installed, --plain
+// fetches it now, since it takes zimon's place; otherwise it returns fetch,
+// for the server to fetch it with. It says so when kiwix-serve can't be had.
+func (a *app) kiwixServe(ctx context.Context, plain bool) (bin string, fetch func(context.Context) (string, error), err error) {
+	f, stateDir := a.kiwixFetcher(), a.cfg.StateDir
+	bin, err = f.Locate(a.cfg.Serve.KiwixServePath, stateDir)
+	hints := func() {
+		a.out.Hint("  To fix it, %s", kiwix.InstallHint)
+		a.out.Hint("  Or set serve.kiwix_serve_path in %s", ui.Tilde(a.cfgPath))
+	}
+	switch {
+	case errors.Is(err, kiwix.ErrNotFetched) && plain:
+		pin, _ := f.Pin()
+		a.out.Status("Fetching kiwix-serve %s from Kiwix (%s)…", kiwix.Version, ui.Size(pin.Size))
+		p := a.out.NewProgress("kiwix-serve", pin.Size, 0)
+		bin, err = f.Fetch(ctx, stateDir, p.Set)
+		p.Finish()
+		switch {
+		case ctx.Err() != nil:
+			return "", nil, ctx.Err()
+		case err != nil:
+			a.out.Fail("kiwix-serve is not installed, and fetching it failed: %v", err)
+			hints()
+			return "", nil, errSilent
+		}
+		a.out.Success("kiwix-serve %s is in %s", kiwix.Version, ui.Tilde(filepath.Dir(bin)))
+		return bin, nil, nil
+	case errors.Is(err, kiwix.ErrNotFetched):
+		return "", func(ctx context.Context) (string, error) { return f.Fetch(ctx, stateDir, nil) }, nil
+	case errors.Is(err, kiwix.ErrUnsupported):
+		if plain {
+			a.out.Fail("%v", err)
+			hints()
+			return "", nil, errSilent
+		}
+		a.out.Warn("%v, so books can't be opened", err)
+		hints()
+		return "", nil, nil
+	}
+	return bin, nil, err
 }

@@ -124,7 +124,8 @@ Settings:
   download.rate_limit  max download speed, e.g. "20MB" (per second), 0 = unlimited
   serve.address     where zimon serve listens: 127.0.0.1 (default, this machine
                     only), all (every network interface) or one IP
-  serve.port, serve.kiwix_serve_path   zimon serve's port (8080) and the kiwix-serve binary
+  serve.port        zimon serve's port (8080)
+  serve.kiwix_serve_path  the kiwix-serve binary (default: on PATH, else fetched from Kiwix)
   serve.admin_port  the admin page's port, on the same address (default: port + 1)
   remote.ssh_command  the ssh program for remotes, with any options (ssh)
   schedule.update   how often zimon serve updates the library: off (default), daily,

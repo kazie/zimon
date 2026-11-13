@@ -18,6 +18,7 @@ import (
 	"github.com/kazie/zimon/internal/catalog"
 	"github.com/kazie/zimon/internal/collections"
 	"github.com/kazie/zimon/internal/config"
+	"github.com/kazie/zimon/internal/kiwix"
 	"github.com/kazie/zimon/internal/library"
 	"github.com/kazie/zimon/internal/remote"
 	"github.com/kazie/zimon/internal/store"
@@ -38,6 +39,7 @@ type app struct {
 	hc       *http.Client
 	hcOnce   sync.Once
 	backoff  func(attempt int) time.Duration // wait before retrying a mirror; nil = the downloader's default
+	kiwix    kiwix.Fetcher                   // where serve fetches kiwix-serve from when it isn't installed
 	remote   *remote.Remote                  // an https:// remote the command runs on; nil: here
 	be       backend.Backend                 // set up before a command runs
 	mgr      *library.Manager                // once made; see manager

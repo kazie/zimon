@@ -1,4 +1,4 @@
-// Package kiwix finds and starts kiwix-serve.
+// Package kiwix finds, fetches and starts kiwix-serve.
 package kiwix
 
 import (
@@ -9,22 +9,29 @@ import (
 	"strconv"
 )
 
-// ErrNotInstalled means kiwix-serve could not be found.
-var ErrNotInstalled = errors.New("kiwix-serve not found on PATH")
+// errNotInstalled means find found no kiwix-serve.
+var errNotInstalled = errors.New("kiwix-serve not found")
 
-// Find returns the kiwix-serve binary: the configured path, else the one on PATH.
-func Find(configured string) (string, error) {
+// InstallHint says how to install kiwix-serve, for when zimon can't fetch it.
+const InstallHint = "install kiwix-tools: your distro's kiwix-tools package, Kiwix's static build from " +
+	DownloadURL + ", or nix shell nixpkgs#kiwix-tools"
+
+// find returns the kiwix-serve binary: the configured path, else the one on
+// PATH, else the one Fetch put in stateDir.
+func find(configured, stateDir string) (string, error) {
 	if configured != "" {
 		if _, err := os.Stat(configured); err != nil {
 			return "", fmt.Errorf("serve.kiwix_serve_path: %w", err)
 		}
 		return configured, nil
 	}
-	p, err := exec.LookPath("kiwix-serve")
-	if err != nil {
-		return "", ErrNotInstalled
+	if p, err := exec.LookPath("kiwix-serve"); err == nil {
+		return p, nil
 	}
-	return p, nil
+	if p, ok := own(stateDir); ok {
+		return p, nil
+	}
+	return "", errNotInstalled
 }
 
 // Options for kiwix-serve.

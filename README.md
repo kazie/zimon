@@ -29,9 +29,14 @@ file with no dependencies; the archive also has shell completions and a man page
 With Nix: `nix run github:kazie/zimon -- search wikipedia`, or add the flake's
 `packages.default` to your system (with completions and `man zimon`).
 
-To read ZIMs in a browser you also need `kiwix-serve` from
-[kiwix-tools](https://github.com/kiwix/kiwix-tools) (your distro's
-`kiwix-tools` package, or `nix shell nixpkgs#kiwix-tools`).
+Books open in `kiwix-serve` from [kiwix-tools](https://github.com/kiwix/kiwix-tools).
+You don't need to install it: when there's none on your `PATH`, `zimon serve`
+fetches Kiwix's own build (10–21 MB) once, in the background (the start page
+works meanwhile, and it tries again if the network is down), checks it against
+the SHA-256 that this zimon release pins, and keeps it in the state folder.
+Your distro's `kiwix-tools` package, or `serve.kiwix_serve_path`, takes
+precedence. When a newer zimon pins a newer kiwix-serve, `zimon serve` deletes
+the old copy as it starts.
 
 ## Quick start
 
@@ -170,7 +175,8 @@ If Kiwix drops a ZIM from its catalog, zimon keeps your copy and marks it
 `zimon serve` opens a start page with every book on disk, grouped by your
 collections with their notes, and one search box across all of them (press
 `/` to jump to it). Books open in `kiwix-serve`, which zimon runs behind the
-scenes and starts again if it stops. `/library` is kiwix-serve's own book list.
+scenes and starts again if it stops (the first time, zimon fetches it from
+Kiwix if it isn't installed; see [Install](#install)). `/library` is kiwix-serve's own book list.
 
 ![The start page of zimon serve](docs/img/serve-portal.png)
 
@@ -676,7 +682,7 @@ in `$EDITOR`. The file is `$ZIMON_CONFIG` or `~/.config/zimon/config.toml`.
 | `serve.address` | `"127.0.0.1"` | Address `zimon serve` listens on: `"all"` for every network interface, or one IP |
 | `serve.port` | `8080` | Port `zimon serve` listens on |
 | `serve.admin_port` | `0` (`serve.port` + 1) | Port of the admin page, on the same address |
-| `serve.kiwix_serve_path` | from `PATH` | Path to `kiwix-serve` |
+| `serve.kiwix_serve_path` | from `PATH`, else fetched from Kiwix | Path to `kiwix-serve` |
 | `remote.ssh_command` | `"ssh"` | The ssh program for remotes, with any options, e.g. `"ssh -F ~/.ssh/zimon_config"` |
 | `schedule.update` | `"off"` | `zimon serve` runs update by itself: `"daily"`, `"weekly"` or `"monthly"` (on the 1st). A run missed while it was down happens when it starts again |
 | `schedule.time` | `"03:30"` | When, local time, plus up to 10 minutes so servers don't all ask Kiwix at once |
@@ -722,6 +728,7 @@ just bench            # benchmarks
 just fuzz 1m          # every fuzz target for a minute each (default 30s)
 just vuln             # known vulnerabilities, with govulncheck
 just generate         # the database code, from its SQL (sqlc)
+just pin-kiwix        # the kiwix-serve release zimon serve fetches, from the Containerfile
 ```
 
 The database is SQLite. Its schema (`internal/store/schema.sql`) and queries
@@ -731,6 +738,8 @@ zimon needs no sqlc. After changing the SQL, run `just generate`.
 
 Dependabot proposes weekly updates for Go modules, GitHub Actions and the container's base
 images; after a Go module update, fix `vendorHash` in flake.nix (the Nix workflow fails until then).
+After a kiwix-serve update in the Containerfile, run `just pin-kiwix`: it pins the same
+kiwix-tools release, with its SHA-256s, for `zimon serve` to fetch (a test fails until then).
 
 Tests never touch the network. `internal/fakekiwix` stands in for the Kiwix
 catalog and mirrors, with fault injection (dropped connections, corrupt

@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -9,7 +11,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -21,6 +25,7 @@ import (
 	"github.com/kazie/zimon/internal/collections"
 	"github.com/kazie/zimon/internal/config"
 	"github.com/kazie/zimon/internal/fakekiwix"
+	"github.com/kazie/zimon/internal/kiwix"
 	"github.com/kazie/zimon/internal/library"
 	"github.com/kazie/zimon/internal/server"
 	"github.com/kazie/zimon/internal/store"
@@ -33,9 +38,22 @@ func TestMain(m *testing.M) {
 	testscript.Main(m, map[string]func(){
 		"zimon": func() {
 			// Retrying a mirror right away keeps the broken-mirror scripts fast.
-			os.Exit(run(&app{version: "test", backoff: func(int) time.Duration { return 0 }}))
+			// kiwix-serve, when zimon serve has to fetch it, is the fake's.
+			os.Exit(run(&app{version: "test", backoff: func(int) time.Duration { return 0 }, kiwix: fakeKiwixTools()}))
 		},
 	})
+}
+
+// fakeKiwixTools fetches the fake's kiwix-tools archive, pinned for this
+// system, from the script's fakekiwix.
+func fakeKiwixTools() kiwix.Fetcher {
+	archive := fakekiwix.KiwixTools()
+	sum := sha256.Sum256(archive)
+	return kiwix.Fetcher{
+		BaseURL: os.Getenv("FAKE_URL") + "/release/kiwix-tools/",
+		Pins: map[string]kiwix.Pin{runtime.GOOS + "/" + runtime.GOARCH: {
+			Archive: fakekiwix.KiwixToolsArchive, Size: int64(len(archive)), SHA256: hex.EncodeToString(sum[:])}},
+	}
 }
 
 // TestScripts runs the end-to-end scenarios in testdata/script. Each script
@@ -47,8 +65,12 @@ func TestMain(m *testing.M) {
 //	fake remove NAME[:FLAVOUR] drop it from the catalog
 //	fake break-mirror N|all    mirror N corrupts a byte (1-based; 0 is the canonical URL)
 //	fake downloads N           the fake has served exactly N file downloads so far
+//	fake kiwix-tools broken|whole  its kiwix-tools archive arrives with a byte wrong, or whole
 //	server start               run zimon serve in this process (see cmdServer)
 //	server refresh             queue a catalog refresh job there, and wait for it
+//
+// $ZIMONBIN is the folder with zimon in it: PATH=$ZIMONBIN hides any
+// kiwix-serve installed here. $KIWIX_VERSION is the one zimon serve fetches.
 //
 // Run one with: go test ./internal/cli -run 'TestScripts/^add$'
 // Add -update to rewrite the files that cmp compares against.
@@ -105,6 +127,10 @@ func setupScript(env *testscript.Env) error {
 	// The remote scripts bring a stand-in ssh at $WORK/bin/ssh.
 	env.Setenv("CATALOG_URL", srv.URL+"/catalog/v2")
 	env.Setenv("FAKE_URL", srv.URL)
+	env.Setenv("KIWIX_VERSION", kiwix.Version)
+	if zimon, err := exec.LookPath("zimon"); err == nil { // testscript puts it first on PATH
+		env.Setenv("ZIMONBIN", filepath.Dir(zimon))
+	}
 	cfg := fmt.Sprintf("catalog_url = %q\n\n[remote]\nssh_command = %q\n", srv.URL+"/catalog/v2", filepath.Join(env.WorkDir, "bin", "ssh"))
 	return os.WriteFile(cfgPath, []byte(cfg), 0o644)
 }
@@ -113,7 +139,7 @@ func cmdFake(ts *testscript.TestScript, neg bool, args []string) {
 	if neg {
 		ts.Fatalf("fake does not support !")
 	}
-	usage := "usage: fake bump|remove NAME[:FLAVOUR], fake break-mirror N|all, fake downloads N, " +
+	usage := "usage: fake bump|remove NAME[:FLAVOUR], fake break-mirror N|all, fake downloads N, fake kiwix-tools broken|whole, " +
 		"fake own FILE NAME N (serve release N of a ZIM named NAME at $FAKE_URL/own/FILE), fake zim PATH NAME N (write one)"
 	if len(args) < 2 {
 		ts.Fatalf("%s", usage)
@@ -156,6 +182,11 @@ func cmdFake(ts *testscript.TestScript, neg bool, args []string) {
 		n, err := strconv.Atoi(arg)
 		ts.Check(err)
 		fk.BreakMirror(n)
+	case "kiwix-tools":
+		if arg != "broken" && arg != "whole" {
+			ts.Fatalf("%s", usage)
+		}
+		fk.BreakKiwixTools(arg == "broken")
 	case "downloads":
 		want, err := strconv.Atoi(arg)
 		ts.Check(err)

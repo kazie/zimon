@@ -292,9 +292,16 @@ func (d *doctor) files(m *library.Manager) {
 }
 
 func (d *doctor) kiwixServe() {
-	bin, err := kiwix.Find(d.a.cfg.Serve.KiwixServePath)
-	if err != nil {
-		d.note("kiwix-serve", err.Error(), "zimon serve needs it: install kiwix-tools, or set serve.kiwix_serve_path.")
+	f := d.a.kiwixFetcher()
+	bin, err := f.Locate(d.a.cfg.Serve.KiwixServePath, d.a.cfg.StateDir)
+	switch {
+	case errors.Is(err, kiwix.ErrNotFetched):
+		pin, _ := f.Pin()
+		d.note("kiwix-serve", "not installed",
+			fmt.Sprintf("zimon serve fetches kiwix-serve %s from Kiwix (%s) when it starts, or install kiwix-tools.", kiwix.Version, ui.Size(pin.Size)))
+		return
+	case err != nil:
+		d.note("kiwix-serve", err.Error(), "zimon serve needs it: "+kiwix.InstallHint+"; or set serve.kiwix_serve_path.")
 		return
 	}
 	ctx, cancel := context.WithTimeout(d.ctx, 5*time.Second)
@@ -302,7 +309,11 @@ func (d *doctor) kiwixServe() {
 	out, err := exec.CommandContext(ctx, bin, "--version").Output()
 	version, _, _ := strings.Cut(strings.TrimSpace(string(out)), "\n")
 	if err != nil || version == "" {
-		d.problem("kiwix-serve", fmt.Sprintf("%s does not run: %v", bin, err), "")
+		hint := ""
+		if bin == kiwix.OwnPath(d.a.cfg.StateDir) {
+			hint = "Delete " + ui.Tilde(filepath.Dir(bin)) + ": zimon serve fetches it again."
+		}
+		d.problem("kiwix-serve", fmt.Sprintf("%s does not run: %v", bin, err), hint)
 		return
 	}
 	d.ok("kiwix-serve", "%s (%s)", ui.Tilde(bin), version)

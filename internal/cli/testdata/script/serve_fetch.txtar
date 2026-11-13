@@ -1,0 +1,44 @@
+# Without kiwix-serve, zimon serve fetches Kiwix's build of it (here the
+# fake's) into the state directory once, checks it against zimon's pin, and
+# uses it from then on.
+
+[!unix] skip 'the fake kiwix-serve is a shell script'
+env PATH=$ZIMONBIN
+
+# doctor says serve will fetch it: worth a look, not a problem.
+exec zimon doctor
+stderr '^! kiwix-serve: not installed$'
+stderr 'zimon serve fetches kiwix-serve '$KIWIX_VERSION' from Kiwix \(\d+ B\) when it starts, or install kiwix-tools\.'
+! stderr '✗'
+
+# --print shows the command --plain runs: the copy it fetches first.
+exec zimon serve --print
+stdout '^\S+/kiwix-tools-'$KIWIX_VERSION'/kiwix-serve --library '
+! exists $HOME/.local/share/zimon/kiwix-tools-$KIWIX_VERSION
+
+# A download that doesn't match the pin is not used, and nothing is left.
+fake kiwix-tools broken
+! exec zimon serve --plain
+stderr '^Fetching kiwix-serve '$KIWIX_VERSION' from Kiwix \(\d+ B\)…$'
+stderr '^✗ kiwix-serve is not installed, and fetching it failed: kiwix-tools_fake-3\.8\.2\.tar\.gz: sha-256 mismatch: got [0-9a-f]+, want [0-9a-f]+$'
+stderr 'To fix it, install kiwix-tools'
+! exists $HOME/.local/share/zimon/kiwix-tools-$KIWIX_VERSION
+
+# The real thing: fetched, then run in zimon's place.
+fake kiwix-tools whole
+exec zimon serve --plain
+stderr '^✓ kiwix-serve '$KIWIX_VERSION' is in ~/\.local/share/zimon/kiwix-tools-'$KIWIX_VERSION'$'
+stdout '^kiwix-serve --library --monitorLibrary --nodatealiases --skipInvalid --port=8080 --address=127\.0\.0\.1 '
+exists $HOME/.local/share/zimon/kiwix-tools-$KIWIX_VERSION/kiwix-serve
+
+# From then on it is there: no second download.
+exec zimon serve --plain
+! stderr 'Fetching'
+fake downloads 2
+
+exec zimon serve --print
+stdout '^\S+/kiwix-tools-'$KIWIX_VERSION'/kiwix-serve --library '
+
+exec zimon doctor
+stderr '^✓ kiwix-serve: ~/\.local/share/zimon/kiwix-tools-'$KIWIX_VERSION'/kiwix-serve \(kiwix-serve --version\)$'
+

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -21,6 +22,7 @@ import (
 	"github.com/kazie/zimon/internal/catalog"
 	"github.com/kazie/zimon/internal/collections"
 	"github.com/kazie/zimon/internal/config"
+	"github.com/kazie/zimon/internal/kiwix"
 	"github.com/kazie/zimon/internal/library"
 	"github.com/kazie/zimon/internal/store"
 )
@@ -311,5 +313,104 @@ func TestSupervisorRestartsKiwix(t *testing.T) {
 	waitFor(t, "kiwix-serve to start again", func() bool { return read() == "run 2" })
 	if n := starts.Load(); n != 2 {
 		t.Errorf("started %d times", n)
+	}
+}
+
+// Without kiwix-serve, the server fetches it in the background, trying
+// again after a failure, and starts it once it is there. Meanwhile the
+// start page works and the status says it is coming, not missing.
+func TestFetchKiwixInBackground(t *testing.T) {
+	s := New(newManager(t), "")
+	s.retry = func(int) time.Duration { return 10 * time.Millisecond }
+	release := make(chan struct{})
+	var tries atomic.Int32
+	s.Fetch = func(ctx context.Context) (string, error) {
+		if tries.Add(1) == 1 {
+			return "", errors.New("offline")
+		}
+		select {
+		case <-release:
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+		return "fetched/kiwix-serve", nil
+	}
+	started := make(chan string, 1)
+	s.start = func(ctx context.Context, _ string) (*proc, error) {
+		started <- s.kiwixBin()
+		p := &proc{done: make(chan struct{})}
+		go func() { <-ctx.Done(); close(p.done) }()
+		return p, nil
+	}
+	serve(t, s)
+	waitFor(t, "a second try", func() bool { return tries.Load() == 2 })
+	if st := get(t, s.Handler(), "GET", "/api/v1/status").Body.String(); !strings.Contains(st, `"kiwix":"down"`) {
+		t.Errorf("while fetching, status = %s", st)
+	}
+	if code := get(t, s.Handler(), "GET", "/").Code; code != http.StatusOK {
+		t.Errorf("start page while fetching: %d", code)
+	}
+	close(release)
+	select {
+	case bin := <-started:
+		if bin != "fetched/kiwix-serve" {
+			t.Errorf("started %q", bin)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("kiwix-serve did not start after the fetch")
+	}
+}
+
+// A fetch that keeps failing gives up after a while: the status says
+// missing, and the page says why.
+func TestFetchKiwixGivesUp(t *testing.T) {
+	s := New(newManager(t), "")
+	s.retry = func(int) time.Duration { return 0 }
+	var tries atomic.Int32
+	s.Fetch = func(context.Context) (string, error) { tries.Add(1); return "", errors.New("sha-256 mismatch") }
+	serve(t, s)
+	waitFor(t, "giving up", func() bool {
+		return strings.Contains(get(t, s.Handler(), "GET", "/api/v1/status").Body.String(), `"kiwix":"missing"`)
+	})
+	if n := tries.Load(); n != fetchTries {
+		t.Errorf("tried %d times, want %d", n, fetchTries)
+	}
+	if p := s.kiwixProblem(); !strings.Contains(p, "Fetching kiwix-serve failed (sha-256 mismatch)") {
+		t.Errorf("problem = %q", p)
+	}
+}
+
+// What older releases fetched, and fetches that stopped, go when zimon
+// serve starts; the current release's kiwix-serve, and a download that may
+// be under way, stay.
+func TestRunRemovesOldKiwix(t *testing.T) {
+	m := newManager(t)
+	state := m.Cfg.StateDir
+	current := kiwix.OwnPath(state)
+	old := filepath.Join(state, "kiwix-tools-0.1.0", "kiwix-serve")
+	stopped := filepath.Join(state, ".kiwix-tools-123.tar.gz")
+	fresh := filepath.Join(state, ".kiwix-tools-456.tar.gz")
+	for _, p := range []string{current, old, stopped, fresh} {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte("x"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	yesterday := time.Now().Add(-24 * time.Hour)
+	if err := os.Chtimes(stopped, yesterday, yesterday); err != nil {
+		t.Fatal(err)
+	}
+	serve(t, New(m, ""))
+	for _, p := range []string{current, fresh} {
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("%s went: %v", p, err)
+		}
+	}
+	for _, p := range []string{filepath.Dir(old), stopped} {
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			t.Errorf("%s is still there", p)
+		}
 	}
 }

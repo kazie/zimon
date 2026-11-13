@@ -24,6 +24,10 @@ cover:
 generate:
     cd internal/store && sqlc generate
 
+# Pin kiwix-serve for zimon serve to fetch: the Containerfile's release, from Kiwix (network, ~60 MB)
+pin-kiwix:
+    go run ./tools/kiwixpin
+
 # Run the benchmarks
 bench:
     go test -run '^$' -bench . -benchmem ./...
