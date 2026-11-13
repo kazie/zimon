@@ -1,0 +1,66 @@
+# budget, and suggest when it fits and when it doesn't.
+
+exec zimon add devdocs_en_bash
+
+# budget shows the use per collection.
+exec zimon budget
+stdout '^WHAT +LEVEL +ON DISK +AT ITS LEVEL$'
+stdout '^hand-picked +2\.00 MB +2\.00 MB$'
+stderr '^Library 2\.00 MB on disk, 2\.00 MB when complete · no budget \(set one: zimon budget 250GB\) · .* free$'
+
+# The demo tapes pin the free space shown.
+env ZIMON_DEMO_FREE_SPACE=32.4GB
+exec zimon budget
+stderr ' · 32\.4 GB free$'
+env ZIMON_DEMO_FREE_SPACE=
+
+# budget SIZE sets it in library.toml; off removes it.
+exec zimon budget 250GB
+stderr '^✓ Saved ~/\.config/zimon/library\.toml$'
+stderr '^Plans and unattended updates now respect it\.$'
+stderr ' · budget 250 GB · '
+grep '^budget = "250GB"$' $TOML
+exec zimon budget off
+stderr '^Budget removed\.$'
+stderr ' · no budget '
+! grep '^budget' $TOML
+exec zimon budget 10GB
+exec zimon budget 0
+stderr '^Budget removed\.$'
+! grep '^budget' $TOML
+! exec zimon budget lots
+stderr '^✗ invalid size "lots" \(try 500MB, 2GB or 1\.5GiB\)$'
+
+# suggest needs a budget.
+! exec zimon suggest @anime-manga
+stderr '^✗ give a budget \(--budget 250GB\) or set one: zimon budget 250GB$'
+
+# When even light is too big, suggest says so and changes nothing.
+! exec zimon suggest --budget 1GB @anime-manga @japan
+stderr '^✗ even at light these need about 2\.61 GB, over the 1\.00 GB budget; drop some collections or raise the budget$'
+! grep anime-manga $TOML
+fake downloads 1
+
+# When it fits, collections start light and go deeper in the order given
+# while the library stays within the budget. The budget is saved too.
+exec zimon suggest --budget 5GB @anime-manga @japan --yes
+stdout '^COLLECTION +LEVEL$'
+stdout '^@anime-manga +standard$'
+stdout '^@japan +light$'
+stderr '^Library about 4\.26 GB of 5\.00 GB when complete\.$'
+stderr -count=12 'sha-256 verified\)$'
+grep '^budget = "5GB"$' $TOML
+grep '^anime-manga = "standard"$' $TOML
+grep '^japan = "light"$' $TOML
+
+# budget now shows each collection, against the budget.
+exec zimon budget
+stdout '^@anime-manga +standard +15\.0 MB +3\.15 GB$'
+stdout '^@japan +light +10\.0 MB +1\.11 GB$'
+stdout '^hand-picked +2\.00 MB +2\.00 MB$'
+stderr ' · budget 5\.00 GB · '
+stderr '^A ZIM in several collections counts in each of them\.$'
+
+# Without --budget, suggest uses the one in library.toml.
+! exec zimon suggest @essentials @anime-manga
+stderr 'over the 5\.00 GB budget'

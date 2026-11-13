@@ -1,0 +1,36 @@
+# serve --print, and serve --plain with a stand-in kiwix-serve. The start
+# page that plain serve runs is tested in internal/server.
+
+[!unix] skip 'the stand-in kiwix-serve is a shell script'
+chmod 755 bin/kiwix-serve
+env PATH=$WORK/bin${:}$PATH
+
+# --print shows the kiwix-serve command --plain runs, and writes library.xml
+# for it.
+exec zimon serve --print
+cmpenv stdout print.txt
+exists $LIB/library.xml
+exec zimon serve --print --address all --port 9000
+stdout ' --port=9000 --address=all '
+
+# --plain replaces zimon with kiwix-serve, which here prints its arguments.
+exec zimon serve --plain
+cmpenv stdout run.txt
+stderr '^! Your library is empty; books show up as you add them\.$'
+stderr '^✓ Serving 0 ZIMs at http://127\.0\.0\.1:8080/ \(Ctrl-C to stop\)$'
+stderr '^Only this computer can reach it; --address all shares it on your network\.$'
+
+exec zimon add devdocs_en_bash
+exec zimon serve --plain --address all -p 9000
+stderr '^✓ Serving 1 ZIM at http://localhost:9000/ \(Ctrl-C to stop\)$'
+! stderr 'Only this computer'
+! stderr 'library is empty'
+grep 'devdocs_en_bash_2026-10\.zim' $LIB/library.xml
+
+-- bin/kiwix-serve --
+#!/bin/sh
+echo "kiwix-serve $*"
+-- print.txt --
+$WORK/bin/kiwix-serve --library --monitorLibrary --nodatealiases --skipInvalid --port=8080 --address=127.0.0.1 $LIB/library.xml
+-- run.txt --
+kiwix-serve --library --monitorLibrary --nodatealiases --skipInvalid --port=8080 --address=127.0.0.1 $LIB/library.xml

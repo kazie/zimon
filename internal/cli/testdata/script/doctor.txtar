@@ -1,0 +1,93 @@
+# zimon doctor checks zimon and its library, says what is wrong in plain
+# words, and exits 1 on a problem (✗), not on something worth a look (!).
+
+chmod 755 bin/kiwix-serve
+env PATH=$WORK/bin:$PATH
+
+# A first run: nothing is there yet, and nothing is wrong.
+exec zimon doctor
+stderr '^✓ library.toml: none yet \(zimon add writes it\)$'
+stderr '^✓ database: none yet \(zimon makes it when it needs it\)$'
+stderr '^✓ kiwix-serve: .*/bin/kiwix-serve \(kiwix-tools 3\.7\.0\)$'
+stderr '^✓ state lock: free$'
+stderr '^✓ All is well\.$'
+! exists $DB
+
+exec zimon add devdocs_en_bash
+exec zimon doctor
+stderr '^✓ catalog: \d+ entries, fetched moments ago$'
+stderr '^✓ space: 2\.00 MB on disk, .* free$'
+stderr '^✓ library: 1 file on disk, as the database says$'
+stderr '^✓ library\.xml: lists the library''s files$'
+stderr '^✓ All is well\.$'
+
+# Things worth a look: a ZIM zimon doesn't know, leftovers, a typo in
+# library.toml, a budget too small, two remotes that don't answer (asked at once).
+cp $LIB/devdocs_en_bash_2026-10.zim $LIB/stray.zim
+mkdir $LIB/.partial
+cp remotes.toml $LIB/.partial/junk.part
+cp typo.toml $TOML
+cp remotes.toml $HOME/.config/zimon/remotes.toml
+exec zimon doctor
+stderr '^! library folder: 1 ZIM zimon doesn''t know: stray\.zim$'
+stderr '^  zimon add \./FILE takes one into the library'
+stderr '^! leftovers: .* from old versions and stopped downloads$'
+stderr '^! library\.toml: unknown collection "nope" \(see: zimon collections\)$'
+stderr '^! budget: library\.toml asks for about 2\.00 MB, over its 1\.00 MB budget$'
+stderr '^! remote also_down: does not answer: dial tcp '
+stderr '^! remote down: does not answer: dial tcp '
+stderr '^Nothing is broken; 6 things worth a look\.$'
+
+# Problems: a ZIM gone from the library folder, a library.xml changed by
+# hand. doctor exits 1.
+rm $LIB/devdocs_en_bash_2026-10.zim
+cp remotes.toml $LIB/library.xml
+! exec zimon doctor
+stderr '^✗ library: 1 file is missing from the library folder: devdocs_en_bash$'
+stderr '^✗ library\.xml: lists other files than the database has$'
+stderr '^✗ 2 problems found$'
+
+# A mistake in collections.toml is named as such.
+cp broken.toml $HOME/.config/zimon/collections.toml
+! exec zimon doctor
+stderr '^✓ database: '
+stderr '^✗ collections\.toml: '
+rm $HOME/.config/zimon/collections.toml
+
+# A mistake in library.toml or config.toml: doctor still runs, and says so.
+cp broken.toml $TOML
+! exec zimon doctor
+stderr '^✗ library\.toml: .*library\.toml: .*'
+stderr '^  Fix it by hand'
+stderr '^✓ database: '
+cp broken.toml $ZIMON_CONFIG
+! exec zimon list
+! exec zimon doctor
+stderr '^✗ config\.toml: '
+stderr '^  Fix it \(zimon config edit\), then run zimon doctor again for the rest\.$'
+stderr '^! remote down: does not answer: '
+! stderr 'database'
+! stderr 'DATA RACE' # the remotes, asked at once, share one HTTP client
+
+-- bin/kiwix-serve --
+#!/bin/sh
+echo kiwix-tools 3.7.0
+echo libkiwix 14.0.0
+-- remotes.toml --
+[down]
+url = "https://127.0.0.1:9"
+token = "zimon_x"
+
+[also_down]
+url = "https://127.0.0.1:9"
+token = "zimon_x"
+-- typo.toml --
+budget = "1MB"
+
+[collections]
+nope = "light"
+
+[items]
+"devdocs_en_bash" = "on"
+-- broken.toml --
+this is = not toml

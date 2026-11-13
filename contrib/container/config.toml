@@ -1,0 +1,15 @@
+# zimon's settings in the container image. The entrypoint copies this to
+# /data/config.toml on first start; edit that copy (zimon config edit, or by
+# hand) and restart the container. See `zimon config --help`.
+
+library_dir = "/data/zim"
+state_dir = "/data/state"
+library_file = "/data/library.toml"
+# languages = ["eng", "swe"]   # default: English
+# The container runs `zimon serve --address all --port 8080`, with the admin
+# page on 8081; publish those ports to choose who reaches them.
+
+[schedule]
+# Fetch new releases of your ZIMs once a week, at `time` ("03:30" by default,
+# UTC: the image has no time zones). "off" leaves updates to you.
+update = "weekly"

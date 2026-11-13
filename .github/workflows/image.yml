@@ -1,0 +1,46 @@
+name: Image
+
+# The container image for each release, for amd64 and arm64, pushed to
+# ghcr.io/kazie/zimon with buildah: no Docker daemon. zimon is cross-compiled
+# in the build stage and the final stage only copies files, so arm64 needs no
+# emulation.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - id: meta
+        # v1.2.3 is tagged 1.2.3 and latest; a pre-release (v1.2.3-rc1) not latest.
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          tags=$version
+          case $version in *-*) ;; *) tags="$tags latest" ;; esac
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "tags=$tags" >>"$GITHUB_OUTPUT"
+      - id: build
+        uses: redhat-actions/buildah-build@v3
+        with:
+          image: zimon
+          tags: ${{ steps.meta.outputs.tags }}
+          platforms: linux/amd64, linux/arm64
+          containerfiles: ./Containerfile
+          build-args: VERSION=${{ steps.meta.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+      - uses: redhat-actions/push-to-registry@v3
+        with:
+          image: ${{ steps.build.outputs.image }}
+          tags: ${{ steps.build.outputs.tags }}
+          registry: ghcr.io/${{ github.repository_owner }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}

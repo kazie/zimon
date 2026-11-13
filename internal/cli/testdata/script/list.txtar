@@ -1,0 +1,49 @@
+# list and list --json.
+
+# An empty library says how to start.
+exec zimon list
+! stdout .
+stderr '^Nothing here yet\.$'
+stderr '^Find something with: zimon collections   zimon search <words>   or   zimon browse$'
+exec zimon list --json
+stdout '^\[\]$'
+
+# Every state: up to date, update available, missing, gone upstream and
+# not wanted.
+exec zimon add devdocs_en_bash superuser.com_en_all serverfault.com_en_all
+cp library.toml $TOML
+fake bump devdocs_en_bash
+fake remove superuser.com_en_all
+exec zimon refresh
+exec zimon list
+cmp stdout list.txt
+stderr '^6 ZIMs · 8\.00 MB on disk · ~/\.local/share/zimon/library$'
+stderr '^↑ 1 update available: zimon update$'
+stderr '^○ library\.toml asks for changes: zimon apply$'
+exec zimon ls
+cmp stdout list.txt
+
+# --json gives stable state ids, full paths and checksums.
+exec zimon list --json
+stdout '"key": "devdocs_en_bash",\n +"name": "devdocs_en_bash",\n +"flavour": "",\n +"wanted": true,\n +"via": \[\n +"items"\n +\],\n +"state": "update_available",'
+stdout '"latest_date": "2026-11-20"'
+stdout '"key": "evageeks_en_all:maxi",\n +"name": "evageeks_en_all",\n +"flavour": "maxi",\n +"wanted": true,\n +"via": \[\n +"anime-manga"\n +\],\n +"state": "missing",'
+stdout '"state": "gone_upstream",\n +"title": "Super User",\n +"path": ".*/home/\.local/share/zimon/library/superuser\.com_en_all_2026-10\.zim",\n +"size": 3000000,\n +"date": "2026-10-19",\n +"sha256": "[0-9a-f]{64}"\n'
+stdout '"key": "serverfault\.com_en_all",\n +"name": "serverfault\.com_en_all",\n +"flavour": "",\n +"wanted": false,\n +"state": "unwanted",'
+stdout -count=6 '"key":'
+
+-- library.toml --
+[collections]
+anime-manga = "light"
+
+[items]
+"devdocs_en_bash" = "on"
+"superuser.com_en_all" = "on"
+-- list.txt --
+   NAME                            TITLE              SIZE  DATE        STATUS
+○  allthetropes_en_all:maxi        All The Tropes  1.48 GB  2026-10-20  missing
+○  anime.stackexchange.com_en_all  Anime & Manga   3.00 MB  2026-10-19  missing
+↑  devdocs_en_bash                 Bash Docs       2.00 MB  2026-10-20  update available → 2026-11-20
+○  evageeks_en_all:maxi            EvaWiki         18.0 MB  2026-10-20  missing
+×  serverfault.com_en_all          Server Fault    3.00 MB  2026-10-19  not wanted (zimon apply removes it)
+!  superuser.com_en_all            Super User      3.00 MB  2026-10-19  gone upstream

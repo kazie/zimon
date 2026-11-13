@@ -1,0 +1,106 @@
+# zimon pull copies ZIMs from a zimon serve's library into this one: it adds
+# them to library.toml and downloads them from the server only.
+
+server start
+exec zimon --config $SERVER_CONFIG add @anime-manga --level light
+exec zimon --config $SERVER_CONFIG add devdocs_en_bash devdocs_en_go wikivoyage_en_all:nopic
+fake downloads 6
+stdin server/token
+exec zimon remote add srv $SERVER_URL
+
+# This library has an older devdocs_en_go (the server gets a newer one),
+# and another flavour of wikivoyage_en_all.
+exec zimon add devdocs_en_go wikivoyage_en_all:maxi
+fake bump devdocs_en_go
+exec zimon --config $SERVER_CONFIG update
+exec zimon refresh
+fake downloads 9
+
+# From here on, every Kiwix mirror sends bad bytes: what arrives comes from
+# the server. Kiwix's .meta4 still checks it.
+fake break-mirror all
+
+# A collection comes at the server's level.
+exec zimon pull srv @anime-manga
+stdout -count=3 ' anime-manga$'
+stderr '^✓ Saved ~/\.config/zimon/library\.toml$'
+stderr -count=3 ' MB, sha-256 verified\)$'
+grep '^anime-manga = "light"$' $TOML
+
+# A ZIM by name, and an update to a newer release than this library's.
+exec zimon pull srv devdocs_en_bash devdocs_en_go
+stdout '^\+  devdocs_en_bash +new · '
+stdout '^↑  devdocs_en_go +'
+stderr '^✓ devdocs_en_bash → .*/library/devdocs_en_bash_.*\.zim \(2\.00 MB, sha-256 verified\)$'
+stderr '^✓ devdocs_en_go → .*/library/devdocs_en_go_.*\.zim \(6\.00 MB, sha-256 verified\)$'
+stderr '^✓ Removed old version '
+
+# Another flavour than this library has: the old one goes with zimon apply,
+# which deletes, so pull asks first.
+! exec zimon pull srv wikivoyage_en_all
+stderr '^! library\.toml will no longer want wikivoyage_en_all:maxi: zimon apply deletes it$'
+stderr '^✗ refusing to delete without confirmation; pass --yes$'
+grep '^"wikivoyage_en_all" = "maxi"$' $TOML
+exec zimon pull srv wikivoyage_en_all --yes
+stderr '^✓ wikivoyage_en_all:nopic → '
+grep '^"wikivoyage_en_all" = "nopic"$' $TOML
+fake downloads 9
+exec zimon list
+stdout -count=6 ' up to date$'
+stdout '^×  wikivoyage_en_all:maxi .* not wanted '
+exec zimon verify
+stderr -count=7 ' ok$'
+
+# Pulling again has nothing to download.
+exec zimon pull srv devdocs_en_bash
+stderr '^✓ Nothing to pull from srv\.$'
+
+# Kiwix has a release newer than the server's.
+fake bump devdocs_en_go
+exec zimon refresh
+exec zimon pull srv devdocs_en_go
+stderr '^✓ Nothing to pull from srv\.$'
+stderr '^srv has no newer release of devdocs_en_go: zimon apply downloads it from Kiwix$'
+
+# A deeper level than the server's: the rest is left for zimon apply.
+exec zimon pull srv @anime-manga --level standard
+stderr '^✓ Nothing to download from srv\.$'
+stderr '^✓ Saved ~/\.config/zimon/library\.toml$'
+stderr '^srv does not have bulbagarden_en_all:nopic, .*: zimon apply downloads them from Kiwix$'
+grep '^anime-manga = "standard"$' $TOML
+
+# Without --level, a collection keeps the level it has here.
+exec zimon pull srv @anime-manga
+grep '^anime-manga = "standard"$' $TOML
+
+# What the server lacks.
+! exec zimon pull srv devdocs_en_rust
+stderr '^✗ srv has no devdocs_en_rust on disk \(see: zimon --remote srv list\)$'
+! exec zimon pull srv @japan
+stderr '^✗ srv has no @japan in its library; pull it at a level with --level$'
+! exec zimon pull nope devdocs_en_bash
+stderr '^✗ no remote "nope" in '
+! exec zimon pull srv @jpan
+stderr '^✗ no collection @jpan \(see: zimon collections\)$'
+! exec zimon pull srv devdocs_en_bash --level deep
+stderr '^✗ --level is for collections \(@id\); a ZIM comes in the flavour the remote has$'
+
+# pull always runs here, whatever $ZIMON_REMOTE says.
+env ZIMON_REMOTE=srv
+exec zimon pull srv devdocs_en_bash
+stderr '^✓ Nothing to pull from srv\.$'
+env ZIMON_REMOTE=
+
+# pull needs the API: not an ssh:// remote.
+exec zimon remote add box ssh://box.example
+! exec zimon pull box devdocs_en_bash
+stderr '^✗ box is an ssh:// remote; zimon pull needs a zimon serve, reached at https://$'
+
+# Completion offers https:// remotes, then what the server has.
+exec zimon __complete pull ''
+stdout '^srv\t'
+! stdout '^box'
+exec zimon __complete pull srv ''
+stdout '^devdocs_en_bash\t'
+exec zimon __complete pull srv @
+stdout '^@anime-manga\t'

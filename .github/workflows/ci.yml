@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - name: Test
+        run: go test -race -coverpkg=./internal/... -coverprofile=cover.out ./...
+        env:
+          GORACE: atexit_sleep_ms=0 # a race build sleeps a second at exit by default
+      - name: Coverage per package
+        shell: bash # with pipefail, so a coversummary failure is not hidden by tee
+        run: |
+          go run ./tools/coversummary cover.out | tee coverage.txt
+          { echo '### Coverage'; echo '```'; cat coverage.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+
+  vuln:
+    # Known vulnerabilities in the dependencies, and in the standard library of
+    # the Go version in go.mod, that zimon's code can actually reach.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false # the cache key is shared; let the test job fill it
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...

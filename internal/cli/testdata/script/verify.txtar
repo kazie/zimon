@@ -1,0 +1,30 @@
+# verify, including a corrupted file.
+
+exec zimon verify
+stderr '^No files to verify\.$'
+
+exec zimon add devdocs_en_bash superuser.com_en_all
+exec zimon verify
+stderr '^✓ devdocs_en_bash ok$'
+stderr '^✓ superuser\.com_en_all ok$'
+exec zimon verify superuser.com_en_all
+stderr '^✓ superuser\.com_en_all ok$'
+! stderr devdocs_en_bash
+
+# A damaged file is reported, the others still pass, and verify fails.
+cp garbage.zim $LIB/superuser.com_en_all_2026-10.zim
+! exec zimon verify
+stderr '^✗ superuser\.com_en_all: sha-256 mismatch: file is [0-9a-f]{64}, expected [0-9a-f]{64}$'
+stderr '^✓ devdocs_en_bash ok$'
+stderr '^Re-download a damaged file with: zimon remove <name> --yes && zimon add <name>$'
+
+# So is a missing one.
+rm $LIB/devdocs_en_bash_2026-10.zim
+! exec zimon verify devdocs_en_bash
+stderr '^✗ devdocs_en_bash: .*no such file or directory$'
+
+! exec zimon verify nothere
+stderr '^✗ nothere is not in your library \(see: zimon list\)$'
+
+-- garbage.zim --
+not a ZIM file

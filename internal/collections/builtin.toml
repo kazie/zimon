@@ -1,0 +1,477 @@
+# zimon's built-in collections.
+#
+# Tiers: a level includes core (light), core+more (standard) or
+# core+more+deep (deep). Giants are never added by a level; each is an
+# explicit opt-in (`zimon level <name> on`).
+#
+# {lang} expands to each configured language's two-letter code (English if
+# none of them has the ZIM); {region} to the region set in library.toml.
+# Every name is checked against the live catalog by `just check-collections`.
+
+[[collection]]
+id = "essentials"
+title = "Essentials"
+blurb = "General knowledge: encyclopedia, dictionary, travel guide, repair manuals."
+core = [
+  { name = "wikipedia_{lang}_all", note = "All of Wikipedia in your languages" },
+  { name = "wiktionary_{lang}_all", note = "Dictionary with etymology and translations" },
+  { name = "wikivoyage_{lang}_all", note = "Travel guide, small and practical" },
+]
+more = [
+  { name = "wikipedia_en_medicine", note = "WikiMed: Wikipedia's medical articles in one compact ZIM" },
+  { name = "ifixit_{lang}_all", note = "Step-by-step repair guides for thousands of devices" },
+  { name = "theworldfactbook_en_all", note = "CIA World Factbook: every country at a glance" },
+]
+
+[[collection]]
+id = "linux"
+title = "Linux & sysadmin"
+blurb = "Wikis, man pages, docs and Q&A for running Linux systems."
+core = [
+  { name = "archlinux_en_all", note = "ArchWiki: the best Linux wiki, useful on any distro" },
+  { name = "www.mankier.com_en_all", note = "Linux man pages, searchable" },
+  { name = "devdocs_en_bash", note = "Bash reference" },
+  { name = "devdocs_en_fish", note = "fish shell reference" },
+  { name = "devdocs_en_git", note = "Git reference" },
+  { name = "devdocs_en_nix", note = "Nix reference" },
+  { name = "devdocs_en_docker", note = "Docker reference (applies to Podman too)" },
+  { name = "devdocs_en_nginx", note = "nginx reference" },
+]
+more = [
+  { name = "gentoo_en_all", note = "Gentoo Wiki: deep kernel and toolchain detail" },
+  { name = "alpinelinux_en_all", note = "Alpine Linux Wiki" },
+  { name = "openwrt.org_en_all", note = "OpenWrt docs for routers and embedded Linux" },
+  { name = "unix.stackexchange.com_en_all", note = "Unix & Linux Q&A" },
+  { name = "serverfault.com_en_all", note = "Server Fault: sysadmin Q&A" },
+  { name = "devdocs_en_kubernetes", note = "Kubernetes reference" },
+  { name = "devdocs_en_ansible", note = "Ansible reference" },
+  { name = "devdocs_en_postgresql", note = "PostgreSQL reference" },
+  { name = "devdocs_en_sqlite", note = "SQLite reference" },
+]
+deep = [
+  { name = "askubuntu.com_en_all", note = "Ask Ubuntu Q&A (big, desktop-heavy)" },
+  { name = "superuser.com_en_all", note = "Super User Q&A (big, all operating systems)" },
+  { name = "termux_en_all", note = "Termux Wiki: Linux on Android" },
+]
+
+[[collection]]
+id = "programming"
+title = "Programming"
+blurb = "Language and web references, algorithms, and focused Q&A."
+core = [
+  { name = "devdocs_en_go", note = "Go standard library reference" },
+  { name = "devdocs_en_python", note = "Python reference" },
+  { name = "devdocs_en_rust", note = "Rust reference" },
+  { name = "devdocs_en_javascript", note = "JavaScript reference (MDN)" },
+  { name = "devdocs_en_typescript", note = "TypeScript reference" },
+  { name = "devdocs_en_html", note = "HTML reference (MDN)" },
+  { name = "devdocs_en_css", note = "CSS reference (MDN)" },
+  { name = "devdocs_en_http", note = "HTTP reference (MDN)" },
+]
+more = [
+  { name = "docs.python.org_en_all", note = "The full Python documentation, tutorials included" },
+  { name = "gobyexample.com_en_all", note = "Go by Example" },
+  { name = "freecodecamp_en_rosetta-code", note = "Rosetta Code tasks from freeCodeCamp" },
+  { name = "opendatastructures.org_en_all", note = "Open Data Structures, a free textbook" },
+  { name = "jeffe.cs.illinois.edu_en_all", note = "Jeff Erickson's Algorithms, a free textbook" },
+  { name = "codereview.stackexchange.com_en_all", note = "Code Review Q&A" },
+  { name = "softwareengineering.stackexchange.com_en_all", note = "Software Engineering Q&A: design and practice" },
+  { name = "cs.stackexchange.com_en_all", note = "Computer Science Q&A" },
+]
+deep = [
+  { name = "devdocs_en_dom", note = "DOM reference (MDN)" },
+  { name = "htdp.org_en_all", note = "How to Design Programs, a classic textbook" },
+  { name = "devhints.io_en_all", note = "Devhints cheat sheets" },
+]
+giant = [
+  { name = "stackoverflow.com_en_all", note = "All of Stack Overflow: 115 GB, much of it about old versions; the docs above give more per GB" },
+]
+
+[[collection]]
+id = "repair"
+title = "Repair"
+blurb = "Fix devices, homes, cars and bikes yourself."
+core = [
+  { name = "ifixit_{lang}_all", note = "iFixit repair guides with photos" },
+  { name = "restarters_en_all", note = "Restarters Wiki: community repair know-how" },
+]
+more = [
+  { name = "diy.stackexchange.com_en_all", note = "Home Improvement Q&A" },
+  { name = "mechanics.stackexchange.com_en_all", note = "Motor Vehicle Maintenance & Repair Q&A" },
+  { name = "bicycles.stackexchange.com_en_all", note = "Bicycles Q&A" },
+  { name = "appropedia_en_all", note = "Appropedia: sustainable, low-cost practical tech" },
+]
+deep = [
+  { name = "lifehacks.stackexchange.com_en_all", note = "Lifehacks Q&A" },
+]
+
+[[collection]]
+id = "making-radio"
+title = "Making & radio"
+blurb = "Electronics, ham radio, microcontrollers, 3D printing and workshop skills."
+core = [
+  { name = "electronics.stackexchange.com_en_all", note = "Electrical Engineering Q&A, the best electronics resource" },
+  { name = "ham.stackexchange.com_en_all", note = "Amateur Radio Q&A" },
+  { name = "arduino.stackexchange.com_en_all", note = "Arduino Q&A" },
+  { name = "raspberrypi.stackexchange.com_en_all", note = "Raspberry Pi Q&A" },
+]
+more = [
+  { name = "3dprinting.stackexchange.com_en_all", note = "3D Printing Q&A" },
+  { name = "woodworking.stackexchange.com_en_all", note = "Woodworking Q&A" },
+  { name = "robotics.stackexchange.com_en_all", note = "Robotics Q&A" },
+  { name = "engineering.stackexchange.com_en_all", note = "Engineering Q&A" },
+  { name = "crafts.stackexchange.com_en_all", note = "Arts & Crafts Q&A" },
+  { name = "drones.stackexchange.com_en_all", note = "Drones Q&A" },
+  { name = "libretexts.org_en_eng", note = "Engineering LibreTexts: free university textbooks" },
+]
+deep = [
+  { name = "networkengineering.stackexchange.com_en_all", note = "Network Engineering Q&A" },
+  { name = "reverseengineering.stackexchange.com_en_all", note = "Reverse Engineering Q&A" },
+  { name = "iot.stackexchange.com_en_all", note = "Internet of Things Q&A" },
+]
+
+[[collection]]
+id = "medicine"
+title = "Medicine & first aid"
+blurb = "Medical encyclopedias, medicines and field medicine."
+core = [
+  { name = "wikipedia_en_medicine", note = "WikiMed: Wikipedia's medical articles" },
+  { name = "nhs.uk_en_medicines", note = "NHS medicines A to Z: what each one is for" },
+  { name = "zimgit-medicine_en", note = "Medical library for when no doctor is near" },
+]
+more = [
+  { name = "mdwiki_en_all", note = "MDWiki: medical encyclopedia written by doctors" },
+  { name = "medlineplus.gov_en_all", note = "MedlinePlus: health topics in plain language" },
+  { name = "irp.fas.org_en_military-medicine", note = "Military medicine manuals: trauma and field care" },
+  { name = "wwwnc.cdc.gov_en_all", note = "CDC travellers' health" },
+]
+deep = [
+  { name = "libretexts.org_en_med", note = "Medicine LibreTexts: free textbooks" },
+  { name = "wikivet.net_en_all", note = "WikiVet: veterinary medicine" },
+  { name = "quickguidesformedicine_en_all", note = "Quick clinical guides" },
+  { name = "medicalsciences.stackexchange.com_en_all", note = "Medical Sciences Q&A" },
+  { name = "librepathology_en_all", note = "Libre Pathology" },
+]
+
+[[collection]]
+id = "science"
+title = "Science & math"
+blurb = "Textbooks, simulations and focused encyclopedias."
+core = [
+  { name = "phet_{lang}_all", note = "PhET interactive simulations for physics, chemistry and math" },
+  { name = "wikipedia_en_physics", note = "Physics by Wikipedia" },
+  { name = "wikipedia_en_chemistry", note = "Chemistry by Wikipedia" },
+  { name = "wikipedia_en_mathematics", note = "Mathematics by Wikipedia" },
+  { name = "wikipedia_en_astronomy", note = "Astronomy by Wikipedia" },
+]
+more = [
+  { name = "libretexts.org_en_bio", note = "Biology LibreTexts: free university textbooks" },
+  { name = "libretexts.org_en_chem", note = "Chemistry LibreTexts" },
+  { name = "libretexts.org_en_phys", note = "Physics LibreTexts" },
+  { name = "libretexts.org_en_math", note = "Mathematics LibreTexts" },
+  { name = "libretexts.org_en_stats", note = "Statistics LibreTexts" },
+  { name = "libretexts.org_en_geo", note = "Geosciences LibreTexts" },
+  { name = "proofwiki.org_en_all", note = "ProofWiki: proofs of mathematical theorems" },
+  { name = "planetmath.org_en_all", note = "PlanetMath encyclopedia" },
+]
+deep = [
+  { name = "math.stackexchange.com_en_all", note = "Mathematics Q&A (7 GB)" },
+  { name = "physics.stackexchange.com_en_all", note = "Physics Q&A" },
+  { name = "chemistry.stackexchange.com_en_all", note = "Chemistry Q&A" },
+  { name = "biology.stackexchange.com_en_all", note = "Biology Q&A" },
+  { name = "astronomy.stackexchange.com_en_all", note = "Astronomy Q&A" },
+  { name = "wikispecies_en_all", note = "Wikispecies: the tree of life" },
+  { name = "wikipedia_en_molcell", note = "Molecular & cell biology by Wikipedia" },
+]
+giant = [
+  { name = "khanacademy_en_all", note = "Khan Academy: 180 GB of mostly video lessons; LibreTexts and PhET cover the same ground far smaller" },
+  { name = "crashcourse_en_all", note = "CrashCourse videos (23 GB)" },
+  { name = "apod.nasa.gov_en_all", note = "NASA Astronomy Picture of the Day archive (17 GB)" },
+]
+
+[[collection]]
+id = "outdoors-nature"
+title = "Outdoors & nature"
+blurb = "Hiking, plants and animals, earth science, knots and maps."
+core = [
+  { name = "outdoors.stackexchange.com_en_all", note = "The Great Outdoors Q&A: hiking, camping, survival" },
+  { name = "zimgit-knots_en", note = "A library of knots" },
+  { name = "maps_en_{region}", note = "Offline map of your region (set region in library.toml)" },
+]
+more = [
+  { name = "gardening.stackexchange.com_en_all", note = "Gardening & Landscaping Q&A" },
+  { name = "gardenology_en_all", note = "Gardenology plant encyclopedia" },
+  { name = "earthscience.stackexchange.com_en_all", note = "Earth Science Q&A" },
+  { name = "sustainability.stackexchange.com_en_all", note = "Sustainable Living Q&A" },
+  { name = "wikipedia_en_climate-change", note = "Climate change by Wikipedia" },
+  { name = "openstreetmap-wiki_en_all", note = "OpenStreetMap Wiki" },
+]
+deep = [
+  { name = "wikispecies_en_all", note = "Wikispecies: the tree of life" },
+]
+
+[[collection]]
+id = "preparedness"
+title = "Preparedness"
+blurb = "Water, food, shelter and recovery when infrastructure fails."
+core = [
+  { name = "zimgit-post-disaster_en", note = "Post-disaster resource library" },
+  { name = "zimgit-water_en", note = "Water treatment library" },
+  { name = "zimgit-food-preparation_en", note = "Food preparation and storage" },
+  { name = "usda-2015_en", note = "USDA guide to home canning" },
+]
+more = [
+  { name = "ready.gov_en_all", note = "Ready.gov emergency guides" },
+  { name = "energypedia_en_all", note = "energypedia: off-grid and renewable energy" },
+  { name = "solar.lowtechmagazine.com_mul_all", note = "Low-Tech Magazine: old and simple technology" },
+  { name = "cd3wdproject.org_en_all", note = "CD3WD: practical development library" },
+]
+deep = [
+  { name = "lrnselfreliance_en_all", note = "Learning Self-Reliance (videos)" },
+]
+giant = [
+  { name = "survivorlibrary.com_en_all", note = "Survivor Library: 220 GB of scanned historical how-to books" },
+]
+
+[[collection]]
+id = "world-kitchen"
+title = "World kitchen"
+blurb = "Recipes and cooking know-how from many cuisines and languages."
+core = [
+  { name = "cooking.stackexchange.com_en_all", note = "Seasoned Advice: cooking Q&A" },
+  { name = "publicdomainrecipes.com_en_all", note = "Public Domain Recipes" },
+  { name = "based.cooking_en_all", note = "based.cooking: simple recipes without the blog spam" },
+]
+more = [
+  { name = "wikibooks_en_all", note = "Wikibooks, including the Cookbook with many cuisines" },
+  { name = "cuisinelibre.org_fr_all", note = "Cuisine libre: French recipes" },
+  { name = "kochwiki.org_de_all", note = "Koch-Wiki: German recipes" },
+  { name = "grimgrains_en_all", note = "GrimGrains: plant-based recipes" },
+  { name = "foss.cooking_en_all", note = "FOSS cooking" },
+  { name = "homebrew.stackexchange.com_en_all", note = "Homebrewing Q&A" },
+]
+deep = [
+  { name = "ted_mul_food", note = "TED talks about food" },
+  { name = "wikibooks_de_all", note = "German Wikibooks, including the Kochbuch" },
+]
+
+[[collection]]
+id = "music-art-film"
+title = "Music, art & film"
+blurb = "Music theory and sheet music, photography, design and film."
+core = [
+  { name = "music.stackexchange.com_en_all", note = "Music Practice & Theory Q&A" },
+  { name = "openmusictheory.com_en_all", note = "Open Music Theory, a free textbook" },
+  { name = "photo.stackexchange.com_en_all", note = "Photography Q&A" },
+  { name = "fretmap.app_en_all", note = "FretMap: guitar scales and chords" },
+  { name = "tonedear.com_en_all", note = "ToneDear: ear training" },
+]
+more = [
+  { name = "movies.stackexchange.com_en_all", note = "Movies & TV Q&A" },
+  { name = "sound.stackexchange.com_en_all", note = "Sound Design Q&A" },
+  { name = "video.stackexchange.com_en_all", note = "Video Production Q&A" },
+  { name = "graphicdesign.stackexchange.com_en_all", note = "Graphic Design Q&A" },
+  { name = "studio.blender.org_en_open-movies", note = "Blender Studio's open movies" },
+  { name = "wikipedia_en_movies", note = "Movies by Wikipedia" },
+]
+deep = [
+  { name = "mutopiaproject.org_en_all", note = "Mutopia: free classical sheet music (6.6 GB)" },
+  { name = "blender.stackexchange.com_en_all", note = "Blender Q&A (2.9 GB)" },
+  { name = "ragajunglism.org_en_all", note = "Indian classical music theory (8.7 GB)" },
+]
+giant = [
+  { name = "chopin.lib.uchicago.edu_en_all", note = "Chopin early editions, scanned sheet music (8.8 GB)" },
+  { name = "celticscores.com_en_all", note = "Celtic and Breton sheet music (5.7 GB)" },
+]
+
+[[collection]]
+id = "history-ideas"
+title = "History, myth & ideas"
+blurb = "History, mythology, philosophy, religion and critical thinking."
+core = [
+  { name = "wikipedia_en_history", note = "History by Wikipedia" },
+  { name = "history.stackexchange.com_en_all", note = "History Q&A" },
+  { name = "mythology.stackexchange.com_en_all", note = "Mythology & Folklore Q&A" },
+  { name = "philosophy.stackexchange.com_en_all", note = "Philosophy Q&A" },
+  { name = "internet-encyclopedia-philosophy_en_all", note = "Internet Encyclopedia of Philosophy" },
+]
+more = [
+  { name = "hsm.stackexchange.com_en_all", note = "History of Science and Mathematics Q&A" },
+  { name = "skeptics.stackexchange.com_en_all", note = "Skeptics Q&A: claims checked against evidence" },
+  { name = "rationalwiki_en_all", note = "RationalWiki" },
+  { name = "literature.stackexchange.com_en_all", note = "Literature Q&A" },
+  { name = "genealogy.stackexchange.com_en_all", note = "Genealogy & Family History Q&A" },
+  { name = "gramps-project.org_en_wiki", note = "Gramps genealogy software wiki" },
+  { name = "buddhism.stackexchange.com_en_all", note = "Buddhism Q&A" },
+  { name = "christianity.stackexchange.com_en_all", note = "Christianity Q&A" },
+  { name = "hinduism.stackexchange.com_en_all", note = "Hinduism Q&A" },
+  { name = "islam.stackexchange.com_en_all", note = "Islam Q&A" },
+  { name = "judaism.stackexchange.com_en_all", note = "Judaism Q&A" },
+]
+deep = [
+  { name = "folgerpedia.folger.edu_en_all", note = "Folgerpedia: Shakespeare and his era (4.2 GB)" },
+  { name = "womenshistory.si.edu_en_all", note = "Smithsonian American women's history (5 GB)" },
+  { name = "politics.stackexchange.com_en_all", note = "Politics Q&A" },
+  { name = "law.stackexchange.com_en_all", note = "Law Q&A" },
+  { name = "economics.stackexchange.com_en_all", note = "Economics Q&A" },
+]
+giant = [
+  { name = "gutenberg_en_lcc-d", note = "Project Gutenberg world history books (40 GB)" },
+]
+
+[[collection]]
+id = "books"
+title = "Books & quotes"
+blurb = "Free books, source texts and quotations in your languages."
+core = [
+  { name = "wikiquote_{lang}_all", note = "Wikiquote" },
+  { name = "gutenberg_{lang}_all", except = ["en"], note = "Project Gutenberg in your languages (English is the giant below)" },
+]
+more = [
+  { name = "wikisource_{lang}_all", note = "Wikisource: source texts and classics" },
+  { name = "wikibooks_{lang}_all", note = "Wikibooks: open textbooks" },
+]
+giant = [
+  { name = "gutenberg_en_all", note = "All English Project Gutenberg books (221 GB)" },
+]
+
+[[collection]]
+id = "japan"
+title = "Japan & Japanese"
+blurb = "Learning Japanese, plus Japan's own encyclopedia, travel guide and literature."
+core = [
+  { name = "wiktionary_ja_all", note = "Japanese Wiktionary: a dictionary for learners" },
+  { name = "japanese.stackexchange.com_mul_all", note = "Japanese Language Q&A: grammar and usage explained in English" },
+  { name = "wikibooks_ja_all", note = "Japanese Wikibooks" },
+  { name = "wikipedia_ja_top", note = "The best 50,000 Japanese Wikipedia articles: reading practice" },
+  { name = "wikivoyage_ja_all", note = "Japanese Wikivoyage" },
+]
+more = [
+  { name = "wikipedia_ja_all", note = "All of Japanese Wikipedia" },
+  { name = "wikisource_ja_all", note = "Japanese Wikisource: classic literature" },
+  { name = "wikipedia_ja_medicine", note = "Japanese medical Wikipedia" },
+]
+deep = [
+  { name = "ifixit_ja_all", note = "iFixit in Japanese" },
+]
+giant = [
+  { name = "maps_en_asia", note = "Map of Asia (21 GB; there is no Japan-only map yet)" },
+]
+
+[[collection]]
+id = "anime-manga"
+title = "Anime & manga"
+blurb = "Anime and manga Q&A, tropes and fan encyclopedias."
+core = [
+  { name = "anime.stackexchange.com_en_all", note = "Anime & Manga Q&A" },
+  { name = "allthetropes_en_all", note = "All The Tropes: storytelling tropes across anime, games and fiction" },
+  { name = "evageeks_en_all", note = "EvaWiki: Neon Genesis Evangelion" },
+]
+more = [
+  { name = "bulbagarden_en_all", note = "Bulbapedia, the Pokémon encyclopedia (text-only; the full one is bulbapedia.bulbagarden.net_en_all)" },
+  { name = "pokemonwiki_en_all", note = "Pokémon Wiki" },
+  { name = "granbluefantasy_en_all", note = "Granblue Fantasy Wiki" },
+  { name = "wikipedia_en_comics", note = "Comics by Wikipedia" },
+]
+deep = [
+  { name = "wikipedia_ja_all", note = "Japanese Wikipedia covers anime and manga in more depth than anything else" },
+]
+
+[[collection]]
+id = "games"
+title = "Video & tabletop games"
+blurb = "Game wikis and gaming Q&A."
+core = [
+  { name = "gaming.stackexchange.com_en_all", note = "Arqade: video game Q&A" },
+  { name = "retrocomputing.stackexchange.com_en_all", note = "Retrocomputing Q&A" },
+  { name = "stardewvalleywiki_en_all", note = "Stardew Valley Wiki" },
+  { name = "balatrowiki_en_all", note = "Balatro Wiki" },
+]
+more = [
+  { name = "minecraft.wiki_en_all", note = "Minecraft Wiki" },
+  { name = "terraria.wiki.gg_en_all", note = "Terraria Wiki" },
+  { name = "uesp.net_en_all", note = "UESP: The Elder Scrolls" },
+  { name = "dwarffortresswiki.org_en_all", note = "Dwarf Fortress Wiki" },
+  { name = "rimworldwiki_en_all", note = "RimWorld Wiki" },
+  { name = "bindingofisaacrebirth_en_all", note = "The Binding of Isaac: Rebirth Wiki" },
+  { name = "riskofrain2_en_all", note = "Risk of Rain 2 Wiki" },
+  { name = "survivors_en_all", note = "Vampire Survivors Wiki" },
+  { name = "zdoom_en_all", note = "ZDoom Wiki" },
+]
+deep = [
+  { name = "wiki.leagueoflegends.com_en_all", note = "League of Legends Wiki" },
+  { name = "gamedev.stackexchange.com_en_all", note = "Game Development Q&A" },
+  { name = "rpg.stackexchange.com_en_all", note = "Role-playing Games Q&A" },
+  { name = "boardgames.stackexchange.com_en_all", note = "Board & Card Games Q&A" },
+  { name = "chess.stackexchange.com_en_all", note = "Chess Q&A" },
+  { name = "dandwiki_en_all", note = "D&D Wiki" },
+  { name = "whitewolfwiki_en_all", note = "White Wolf Wiki" },
+]
+giant = [
+  { name = "alexandria.dk_en_all", note = "Alexandria: role-playing and board game library (43 GB)" },
+]
+
+[[collection]]
+id = "world-view"
+title = "World view"
+blurb = "Each language's own Wikipedia highlights, for a less western-centric library. Your browser can translate pages offline."
+core = [
+  { name = "wikipedia_zh_top", note = "Chinese" },
+  { name = "wikipedia_ja_top", note = "Japanese" },
+  { name = "wikipedia_ko_top", note = "Korean" },
+  { name = "wikipedia_hi_top", note = "Hindi" },
+  { name = "wikipedia_ar_top", note = "Arabic" },
+  { name = "wikipedia_fa_top", note = "Persian" },
+  { name = "wikipedia_tr_top", note = "Turkish" },
+  { name = "wikipedia_id_top", note = "Indonesian" },
+  { name = "wikipedia_vi_top", note = "Vietnamese" },
+  { name = "wikipedia_th_top", note = "Thai" },
+  { name = "wikipedia_es_top", note = "Spanish" },
+  { name = "wikipedia_pt_top", note = "Portuguese" },
+  { name = "wikipedia_fr_top", note = "French" },
+  { name = "wikipedia_de_top", note = "German" },
+  { name = "wikipedia_ru_top", note = "Russian" },
+]
+more = [
+  { name = "wikivoyage_zh_all", note = "Chinese Wikivoyage" },
+  { name = "wikivoyage_ja_all", note = "Japanese Wikivoyage" },
+  { name = "wikivoyage_hi_all", note = "Hindi Wikivoyage" },
+  { name = "wikivoyage_fa_all", note = "Persian Wikivoyage" },
+  { name = "wikivoyage_vi_all", note = "Vietnamese Wikivoyage" },
+  { name = "wikivoyage_es_all", note = "Spanish Wikivoyage" },
+  { name = "wikivoyage_pt_all", note = "Portuguese Wikivoyage" },
+  { name = "wikivoyage_fr_all", note = "French Wikivoyage" },
+  { name = "wikivoyage_de_all", note = "German Wikivoyage" },
+  { name = "wikivoyage_ru_all", note = "Russian Wikivoyage" },
+  { name = "chinese.stackexchange.com_mul_all", note = "Chinese Language Q&A" },
+  { name = "korean.stackexchange.com_mul_all", note = "Korean Language Q&A" },
+]
+deep = [
+  { name = "wiktionary_zh_all", note = "Chinese Wiktionary" },
+  { name = "wikisource_ko_all", note = "Korean Wikisource" },
+]
+giant = [
+  { name = "wikisource_zh_all", note = "Chinese Wikisource: classical Chinese texts (13 GB)" },
+  { name = "africanstorybook.org_mul_all", note = "African Storybook: picture books in many African languages (8.7 GB)" },
+]
+
+[[collection]]
+id = "fun"
+title = "Fun"
+blurb = "Comics, fiction wikis and puzzles."
+core = [
+  { name = "xkcd.com_en_all", note = "xkcd" },
+  { name = "explainxkcd_en_all", note = "Explain xkcd" },
+  { name = "smbc-comics.com_en_all", note = "Saturday Morning Breakfast Cereal" },
+]
+more = [
+  { name = "scifi.stackexchange.com_en_all", note = "Science Fiction & Fantasy Q&A" },
+  { name = "worldbuilding.stackexchange.com_en_all", note = "Worldbuilding Q&A" },
+  { name = "coppermind.net_en_all", note = "Coppermind: Brandon Sanderson's worlds" },
+  { name = "kiwix.westeros_en_all", note = "A Wiki of Ice and Fire" },
+  { name = "the_infosphere_en_all", note = "The Infosphere: Futurama" },
+  { name = "tomlehrersongs.com_en_all", note = "Tom Lehrer's songs" },
+]
+deep = [
+  { name = "puzzling.stackexchange.com_en_all", note = "Puzzling Q&A" },
+]

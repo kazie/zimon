@@ -1,0 +1,59 @@
+# add by name.
+
+# add shows the plan, downloads, verifies and records the ZIM.
+exec zimon add devdocs_en_bash
+stdout '^\+  devdocs_en_bash  new · 2026-10-20  2\.00 MB  hand-picked$'
+stderr '^download about 2\.00 MB · library 0 B → 2\.00 MB · .* free$'
+stderr '^devdocs_en_bash: 100% \(2\.00 MB / 2\.00 MB\)'
+stderr '^✓ devdocs_en_bash → ~/\.local/share/zimon/library/devdocs_en_bash_2026-10\.zim \(2\.00 MB, sha-256 verified\)$'
+stderr '^✓ Saved ~/\.config/zimon/library\.toml$'
+stderr '^Read it in a browser: zimon serve$'
+exists $LIB/devdocs_en_bash_2026-10.zim
+grep '^"devdocs_en_bash" = "on"$' $TOML
+grep 'devdocs_en_bash_2026-10\.zim' $LIB/library.xml
+fake downloads 1
+
+# Adding it again downloads nothing.
+exec zimon add devdocs_en_bash
+! stdout .
+fake downloads 1
+
+# A ZIM with several flavours needs one; without a terminal zimon lists them.
+! exec zimon add wikivoyage_en_all
+stderr '^✗ wikivoyage_en_all comes in several flavours; pick one:$'
+stderr '^  wikivoyage_en_all:maxi \(1\.02 GB\)$'
+stderr '^  wikivoyage_en_all:nopic \(233 MB\)$'
+exec zimon add wikivoyage_en_all:nopic
+grep '^"wikivoyage_en_all" = "nopic"$' $TOML
+
+# On a terminal zimon asks which flavour.
+ttyin -stdin pick.txt
+exec zimon add wikipedia_ja_top
+stderr 'Which flavour of wikipedia_ja_top\?'
+stderr '  2\) mini +191 MB +2026-10-20  no pictures'
+stderr '^✓ wikipedia_ja_top:mini → '
+grep '^"wikipedia_ja_top" = "mini"$' $TOML
+
+# Several at once. A mirror that sends bad data is skipped.
+fake break-mirror 1
+exec zimon add superuser.com_en_all serverfault.com_en_all
+stdout -count=2 'hand-picked$'
+stderr -count=2 '^! 127\.0\.0\.1:\d+ failed \(piece failed its sha-1 check \(piece 1\)\), trying the next mirror$'
+stderr '^✓ superuser\.com_en_all → .* sha-256 verified\)$'
+stderr '^✓ serverfault\.com_en_all → .* sha-256 verified\)$'
+fake downloads 7
+
+# Unknown names and flavours change nothing.
+cp $TOML before.toml
+! exec zimon add devdocs_en_bsh
+stderr '^✗ "devdocs_en_bsh" is not in the catalog$'
+stderr 'did you mean: .*devdocs_en_bash'
+! exec zimon add devdocs_en_git devdocs_en_bash:maxi
+stderr '^✗ devdocs_en_bash has no flavour "maxi"$'
+! exec zimon add
+stderr 'requires at least 1 arg'
+cmp $TOML before.toml
+fake downloads 7
+
+-- pick.txt --
+2

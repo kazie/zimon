@@ -1,0 +1,58 @@
+# ZIMs from no catalog: from a URL or a file. library.toml's [sources] keeps
+# where each comes from, and update looks there for new releases.
+
+# From a URL: named after the file, checked and downloaded.
+fake own mysite_en_all_2026-11.zim mysite_en_all 1
+exec zimon add $FAKE_URL/own/mysite_en_all_2026-11.zim
+stdout '^\+  mysite_en_all +new · 2026-11-01 +1\.05 MB +hand-picked$'
+stderr '^✓ mysite_en_all → ~/\.local/share/zimon/library/mysite_en_all_2026-11\.zim \(1\.05 MB, not verified: 127\.0\.0\.1:\d+ has no checksum\)$'
+grep '^\[sources\]$' $TOML
+grep '^"mysite_en_all" = "http://127\.0\.0\.1:\d+/own/mysite_en_all_2026-11\.zim"$' $TOML
+grep '^"mysite_en_all" = "on"$' $TOML
+exec zimon list
+stdout '^✓  mysite_en_all +My mysite_en_all +1\.05 MB +2026-11-01 +up to date$'
+exec zimon search mysite
+stdout 'mysite_en_all'
+exec zimon list --json
+stdout '"source": "http://127\.0\.0\.1:\d+/own/mysite_en_all_2026-11\.zim"'
+fake downloads 1
+
+# update looks again, and gets a new release.
+exec zimon update --yes
+stderr '^✓ Everything is up to date\.$'
+fake own mysite_en_all_2026-11.zim mysite_en_all 2
+exec zimon update --yes
+stdout '^↑  mysite_en_all +2026-11-01 → 2026-12-01 '
+stderr '^✓ Removed old version mysite_en_all_2026-11\.zim \(freed 1\.05 MB\)$'
+fake downloads 2
+
+# --sha256 checks the download.
+fake own other.zim other_en_all 1
+! exec zimon add $FAKE_URL/own/other.zim --sha256 0000000000000000000000000000000000000000000000000000000000000000 --yes
+stderr 'sha-256'
+! exec zimon add $FAKE_URL/own/other.zim --sha256 abc
+stderr '^✗ --sha256 "abc" is not a sha-256 \(64 hex digits\)$'
+! exec zimon add $FAKE_URL/own/other.zim $FAKE_URL/own/mysite_en_all_2026-11.zim --name x
+stderr '^✗ --name and --sha256 go with one URL or file$'
+exec zimon remove other --yes
+
+# From a file: named after the ZIM's own name, and cloned or copied in.
+fake zim notes.zim notes_en_all 1
+! exec zimon add notes.zim --name devdocs_en_bash
+stderr '^✗ devdocs_en_bash is in the catalog, so zimon add devdocs_en_bash gets it from there; a copy of its latest release in .*/library is checked and kept instead of downloaded; or choose another name with --name$'
+exec zimon add notes.zim
+stderr '^✓ notes_en_all → ~/\.local/share/zimon/library/notes\.zim \(1\.05 MB, (cloned|copied) from .*/notes\.zim\)$'
+grep '^"notes_en_all" = "/.*/notes\.zim"$' $TOML
+exec zimon list
+stdout '^✓  notes_en_all +My notes_en_all '
+
+# A new build at the path is an update.
+fake zim notes.zim notes_en_all 2
+exec zimon update --yes
+stdout '^↑  notes_en_all +2026-11-01 → 2026-12-01 '
+
+# Removing drops the source.
+exec zimon remove notes_en_all mysite_en_all --yes
+! grep 'notes_en_all|mysite_en_all' $TOML
+exists $WORK/notes.zim
+

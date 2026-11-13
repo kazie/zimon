@@ -1,0 +1,70 @@
+# update with a new release, update --check, and new ZIMs held by the budget.
+
+exec zimon add devdocs_en_bash superuser.com_en_all
+exec zimon update
+! stdout .
+stderr '^Refreshing the Kiwix catalog…$'
+stderr '^✓ Everything is up to date\.$'
+
+# --check shows a new release without downloading it.
+fake bump devdocs_en_bash
+exec zimon update --check
+stdout '^↑  devdocs_en_bash  2026-10-20 → 2026-11-20  2\.00 MB  hand-picked$'
+stderr '^Nothing changed \(dry run\)\.$'
+fake downloads 2
+
+# update downloads it, verifies it, and then deletes the old version.
+exec zimon update
+stderr '(?s)✓ devdocs_en_bash → ~/\.local/share/zimon/library/devdocs_en_bash_2026-11\.zim \(2\.00 MB, sha-256 verified\)\n✓ Removed old version devdocs_en_bash_2026-10\.zim \(freed 2\.00 MB\)\n'
+exists $LIB/devdocs_en_bash_2026-11.zim
+! exists $LIB/devdocs_en_bash_2026-10.zim
+grep 'devdocs_en_bash_2026-11\.zim' $LIB/library.xml
+fake downloads 3
+
+# update NAME looks only at that ZIM.
+fake bump devdocs_en_bash
+fake bump superuser.com_en_all
+exec zimon update superuser.com_en_all --yes
+stdout '^↑  superuser\.com_en_all '
+! stdout devdocs_en_bash
+! exec zimon update nothere
+stderr '^✗ nothere is not in your library \(see: zimon list\)$'
+fake downloads 4
+
+# New wanted ZIMs come only while the library stays within its budget.
+exec zimon update --yes
+exec zimon budget 100MB
+exec zimon add @anime-manga --level light --no-download
+exec zimon update --yes
+stdout '^\+  anime\.stackexchange\.com_en_all +new '
+stdout '^\+  evageeks_en_all:maxi +new '
+! stdout allthetropes
+stderr '^download about 21\.0 MB · library 5\.00 MB → 26\.0 MB of 100 MB · '
+stderr '^○ 1 new ZIM waits for your OK \(over the 100 MB budget\): allthetropes_en_all:maxi$'
+stderr '^  Download it with: zimon apply$'
+! exists $LIB/allthetropes_en_all_maxi_2026-10.zim
+fake downloads 7
+
+# apply downloads it anyway, and says it goes over.
+exec zimon apply --yes
+stderr ' of 100 MB \(over budget by 1\.39 GB\) · '
+exists $LIB/allthetropes_en_all_maxi_2026-10.zim
+
+# With new_items = "ask", update leaves new ZIMs to apply. update never
+# deletes: what library.toml no longer wants is left to apply as well.
+cp ask.toml $TOML
+exec zimon update --yes
+! stdout .
+stderr '^✓ Everything is up to date\.$'
+stderr '^○ 1 new ZIM waits for your OK \(new_items = "ask"\): devdocs_en_git$'
+stderr '^3 more changes to match library\.toml \(.*\): zimon apply$'
+exists $LIB/evageeks_en_all_maxi_2026-10.zim
+fake downloads 8
+
+-- ask.toml --
+new_items = "ask"
+
+[items]
+"devdocs_en_bash" = "on"
+"superuser.com_en_all" = "on"
+"devdocs_en_git" = "on"

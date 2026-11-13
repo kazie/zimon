@@ -1,0 +1,21 @@
+# Without library.toml, the files on disk are what the library wants:
+# nothing is deleted.
+
+exec zimon add devdocs_en_bash superuser.com_en_all
+rm $TOML
+
+exec zimon apply --yes
+! stdout .
+stderr '^✓ Nothing to do: your library matches library\.toml\.$'
+exists $LIB/devdocs_en_bash_2026-10.zim
+exists $LIB/superuser.com_en_all_2026-10.zim
+exec zimon list
+stdout -count=2 ' up to date$'
+! exists $TOML
+
+# The first edit writes them into [items].
+exec zimon add devdocs_en_git
+grep '^"devdocs_en_bash" = "on"$' $TOML
+grep '^"superuser.com_en_all" = "on"$' $TOML
+grep '^"devdocs_en_git" = "on"$' $TOML
+fake downloads 3

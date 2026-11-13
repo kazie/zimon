@@ -1,0 +1,20 @@
+# Recovery: with the database gone, apply adopts the files on disk instead of
+# downloading them again.
+
+exec zimon add devdocs_en_bash superuser.com_en_all @anime-manga --level light
+fake downloads 5
+
+rm $DB $DB-wal $DB-shm
+rm $LIB/superuser.com_en_all_2026-10.zim
+exec zimon list
+stderr '^Refreshing the Kiwix catalog…$'
+stdout -count=5 ' missing$'
+
+exec zimon apply --yes
+stderr -count=4 '^! .*\.zim is already in the library folder; checking it instead of downloading$'
+stderr -count=4 ', found on disk, sha-256 verified\)$'
+stderr '^✓ superuser\.com_en_all → .*\(3\.00 MB, sha-256 verified\)$'
+fake downloads 6
+exec zimon list
+stdout -count=5 ' up to date$'
+grep 'devdocs_en_bash_2026-10\.zim' $LIB/library.xml

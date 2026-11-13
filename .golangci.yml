@@ -1,0 +1,22 @@
+version: "2"
+linters:
+  enable:
+    - errorlint
+    - gocritic # default checks
+    - gocyclo
+    - misspell
+    - modernize
+    - revive # default rules, exported and blank-imports among them
+    - unconvert
+    - unparam
+    - usestdlibvars
+  settings:
+    gocyclo:
+      min-complexity: 30
+  exclusions:
+    presets:
+      # Unchecked Close/Remove/fmt.Fprint* and friends are deliberate.
+      - std-error-handling
+formatters:
+  enable:
+    - gofmt

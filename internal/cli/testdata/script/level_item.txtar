@@ -1,0 +1,37 @@
+# Item choices: off, on, default and a level.
+
+exec zimon add @anime-manga --level light
+
+# off leaves a collection's ZIM out, and deletes it.
+exec zimon level evageeks_en_all off --yes
+stdout '^−  evageeks_en_all:maxi +delete +2\.00 MB '
+stderr '^✓ Removed evageeks_en_all:maxi \(freed 2\.00 MB\)$'
+grep '^"evageeks_en_all" = "off"$' $TOML
+! exists $LIB/evageeks_en_all_maxi_2026-10.zim
+exec zimon collections show anime-manga
+stdout ' evageeks_en_all:maxi .* switched off in library\.toml · EvaWiki'
+exec zimon apply
+stderr '^✓ Nothing to do: your library matches library\.toml\.$'
+
+# on brings it back.
+exec zimon level evageeks_en_all on
+stdout '^\+  evageeks_en_all:maxi +new · 2026-10-20 +18\.0 MB +anime-manga, hand-picked$'
+grep '^"evageeks_en_all" = "on"$' $TOML
+exists $LIB/evageeks_en_all_maxi_2026-10.zim
+
+# on also adds a ZIM no collection has.
+exec zimon level devdocs_en_go on
+stdout '^\+  devdocs_en_go +new · 2026-10-12 +6\.00 MB +hand-picked$'
+grep '^"devdocs_en_go" = "on"$' $TOML
+
+# default is the variant without a flavour.
+exec zimon level devdocs_en_go default
+grep '^"devdocs_en_go" = "default"$' $TOML
+! exec zimon level wikipedia_ja_top default
+stderr '^✗ wikipedia_ja_top has no "default" variant; there is: maxi 4\.22 GB, mini 191 MB, nopic 1\.93 GB$'
+
+# A level picks the flavour the way a collection would: light is the smallest.
+exec zimon level wikivoyage_en_all light
+stdout '^\+  wikivoyage_en_all:nopic +new · 2026-10-01 +233 MB +hand-picked$'
+grep '^"wikivoyage_en_all" = "light"$' $TOML
+fake downloads 6

@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: zimon
+
+before:
+  hooks:
+    - go mod tidy
+    - sh -c 'mkdir -p completions && for sh in bash fish zsh; do go run . completion "$sh" > "completions/zimon.$sh"; done'
+    - sh -c 'mkdir -p manpages && SOURCE_DATE_EPOCH={{ .CommitTimestamp }} go run . man > manpages/zimon.1'
+
+builds:
+  - main: .
+    binary: zimon
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - completions/*
+      - manpages/*
+      - contrib/systemd/**/*
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"

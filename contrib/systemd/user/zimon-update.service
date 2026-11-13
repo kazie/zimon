@@ -1,0 +1,13 @@
+[Unit]
+Description=Update Kiwix ZIM files with zimon
+Documentation=https://github.com/kazie/zimon
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/go/bin/zimon update --yes --no-color
+# Big downloads can take hours; don't let systemd give up on them.
+TimeoutStartSec=infinity
+Nice=10
+IOSchedulingClass=idle

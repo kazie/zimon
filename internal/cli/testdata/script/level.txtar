@@ -1,0 +1,67 @@
+# level up and down, for a collection and for one ZIM.
+
+exec zimon add @japan --level light
+stdout -count=5 ' japan$'
+stdout '^\+  wikipedia_ja_top:mini '
+fake downloads 5
+
+# Up: new ZIMs come, and wikipedia_ja_top switches to a bigger flavour. The
+# new flavour is downloaded and verified before the old one is deleted.
+exec zimon level @japan standard --yes
+stdout '^⇄  wikipedia_ja_top:nopic +mini → nopic +1\.93 GB +japan · frees 2\.00 MB$'
+stdout '^\+  wikipedia_ja_all:nopic +new · 2026-10-20 '
+stdout -count=4 ' japan'
+stderr '^download about .* · delete 2\.00 MB · library 10\.0 MB → .* free$'
+stderr '(?s)✓ wikipedia_ja_top:nopic → .*\(2\.00 MB, sha-256 verified\)\n✓ Removed wikipedia_ja_top:mini \(freed 2\.00 MB\)\n'
+grep '^japan = "standard"$' $TOML
+exists $LIB/wikipedia_ja_top_nopic_2026-10.zim
+! exists $LIB/wikipedia_ja_top_mini_2026-10.zim
+fake downloads 9
+
+# Down: the extra ZIMs are deleted and the flavour switches back.
+exec zimon level @japan light --yes
+stdout '^⇄  wikipedia_ja_top:mini +nopic → mini '
+stdout -count=3 '^−  .* +delete +2\.00 MB +not in library\.toml$'
+stderr '^✓ Removed wikipedia_ja_all:nopic \(freed 2\.00 MB\)$'
+grep '^japan = "light"$' $TOML
+! exists $LIB/wikipedia_ja_all_nopic_2026-10.zim
+exec zimon list
+stdout -count=5 ' up to date$'
+
+# One ZIM can go its own way.
+exec zimon level wikipedia_ja_top maxi --yes
+stdout '^⇄  wikipedia_ja_top:maxi +mini → maxi +4\.22 GB +japan, hand-picked · frees 2\.00 MB$'
+grep '^"wikipedia_ja_top" = "maxi"$' $TOML
+exists $LIB/wikipedia_ja_top_maxi_2026-10.zim
+! exists $LIB/wikipedia_ja_top_mini_2026-10.zim
+
+# When the new flavour cannot be downloaded, the old one stays.
+fake break-mirror all
+! exec zimon level wikipedia_ja_top nopic --yes
+stderr -count=3 '^! 127\.0\.0\.1:\d+ failed \(piece failed its sha-1 check \(piece 0\)\), trying the next mirror$'
+stderr '^✗ wikipedia_ja_top:nopic: download failed after trying every mirror: '
+stderr '^✗ 1 of 1 changes failed\. They stay in library\.toml: zimon apply retries them, zimon remove drops them\.$'
+exists $LIB/wikipedia_ja_top_maxi_2026-10.zim
+! exists $LIB/wikipedia_ja_top_nopic_2026-10.zim
+grep '^"wikipedia_ja_top" = "nopic"$' $TOML
+exec zimon list
+stdout '^×  wikipedia_ja_top:maxi .* not wanted \(zimon apply switches to wikipedia_ja_top:nopic\)$'
+stdout '^↓  wikipedia_ja_top:nopic .* downloading 0% \(stopped: download failed after trying every mirror'
+
+# Mistakes are explained.
+! exec zimon level wikipedia_ja_top:mini nopic
+stderr '^✗ give the name without a flavour: zimon level wikipedia_ja_top nopic$'
+! exec zimon level wikipedia_ja_top:mini on
+stderr '^✗ give the name without a flavour: zimon level wikipedia_ja_top mini$'
+! exec zimon level wikipedia_ja_top: on
+stderr '^✗ give the name without a flavour: zimon level wikipedia_ja_top on$'
+! exec zimon level wikipedia_ja_top huge
+stderr '^✗ wikipedia_ja_top has no "huge" variant; there is: maxi 4\.22 GB, mini 191 MB, nopic 1\.93 GB$'
+! exec zimon level wikipedia_xx_top maxi
+stderr '^✗ wikipedia_xx_top is not in the catalog \(see: zimon search wikipedia_xx_top\)$'
+! exec zimon level @japan huge
+stderr '^✗ "huge": a collection''s level is light, standard or deep$'
+! exec zimon level @nope deep
+stderr '^✗ no collection "nope"; there are: '
+! exec zimon level @japan
+stderr 'accepts 2 arg'

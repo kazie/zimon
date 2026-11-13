@@ -1,0 +1,67 @@
+# add @collection --level, and --no-download followed by apply.
+
+# add @collection --level downloads that level of the collection.
+exec zimon add @anime-manga --level light
+stdout -count=3 ' anime-manga$'
+stdout '^\+  evageeks_en_all:maxi +new · 2026-10-20 +18\.0 MB +anime-manga$'
+! stdout pokemonwiki
+stderr -count=3 'sha-256 verified\)$'
+grep '^anime-manga = "light"$' $TOML
+fake downloads 3
+
+# Without a terminal and without --level, a collection comes at standard.
+# --no-download only edits library.toml.
+exec zimon add @japan --no-download
+! stdout .
+stderr '^✓ Saved ~/\.config/zimon/library\.toml$'
+stderr '^Download it with: zimon apply$'
+grep '^japan = "standard"$' $TOML
+fake downloads 3
+exec zimon list
+stdout -count=8 ' missing$'
+stderr '^○ library\.toml asks for changes: zimon apply$'
+
+# apply downloads what is missing.
+exec zimon apply
+stdout -count=8 ' japan$'
+stderr -count=8 'sha-256 verified\)$'
+fake downloads 11
+exec zimon list
+! stdout missing
+stdout -count=11 ' up to date$'
+
+# collections marks yours; collections show lists a collection's ZIMs.
+exec zimon collections
+stdout '^   COLLECTION +TITLE +YOURS +LIGHT +STANDARD +DEEP$'
+stdout '^✓  @anime-manga +Anime & manga +light +1\.50 GB +3\.15 GB +'
+stdout '^✓  @japan +Japan & Japanese +standard '
+stdout '^   @linux +Linux & sysadmin +'
+exec zimon collections show anime-manga
+stdout '^Anime & manga · @anime-manga$'
+stdout '^Levels: light 1\.50 GB \(yours\) · standard 3\.15 GB · deep '
+stdout '^✓  evageeks_en_all:maxi +18\.0 MB +core +EvaWiki'
+stdout '^   pokemonwiki_en_all:maxi +847 MB +more '
+stderr '^Change the level: zimon level @anime-manga light\|standard\|deep$'
+exec zimon collections show @linux
+stdout '^Not in your library; showing the standard level\.$'
+stderr '^Add it: zimon add @linux --level standard$'
+
+# On a terminal zimon shows each level's size and asks; enter cancels.
+ttyin -stdin cancel.txt
+! exec zimon add @linux
+stderr '^How deep should Linux & sysadmin go\?$'
+stderr '^  1\) light +221 MB  the core items, smallest versions$'
+stderr ' Cancelled\.$'
+! grep linux $TOML
+
+# Unknown collections and levels are errors.
+! exec zimon add @nope
+stderr '^✗ no collection "nope"; there are: @essentials '
+! exec zimon add @linux --level huge
+stderr '^✗ --level "huge": use light, standard or deep$'
+! exec zimon collections show nope
+stderr 'no collection "nope"'
+fake downloads 11
+
+-- cancel.txt --
+

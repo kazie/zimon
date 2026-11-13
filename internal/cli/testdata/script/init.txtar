@@ -1,0 +1,91 @@
+# First run, init and config.
+
+# Bare zimon, --version and unknown commands need no config.
+mv $ZIMON_CONFIG $WORK/fake.toml
+exec zimon
+stdout 'zimon finds, downloads, verifies, updates and serves Kiwix ZIM files'
+exec zimon --version
+stdout '^zimon test$'
+! exec zimon frobnicate
+stderr 'unknown command "frobnicate"'
+
+# config shows the defaults before there is a config file.
+exec zimon config
+stderr 'config\.toml \(not created yet; showing defaults\)$'
+stdout '^library_dir = ''.*/home/\.local/share/zimon/library''$'
+stdout '^languages = \[''eng''\]$'
+stdout '^catalog_url = ''https://opds\.library\.kiwix\.org/catalog/v2''$'
+! exists $ZIMON_CONFIG
+
+# The config file is $ZIMON_CONFIG, else under $XDG_CONFIG_HOME.
+exec zimon config path
+stdout '/home/\.config/zimon/config\.toml$'
+env ZIMON_CONFIG=
+env XDG_CONFIG_HOME=$WORK/xdg
+exec zimon config path
+stdout '/xdg/zimon/config\.toml$'
+env XDG_CONFIG_HOME=$HOME/.config
+env ZIMON_CONFIG=$HOME/.config/zimon/config.toml
+
+# Without a terminal the first command runs on the defaults, without asking.
+exec zimon verify
+stderr '^No files to verify\.$'
+! stderr Welcome
+! exists $ZIMON_CONFIG
+
+# Without a terminal, init writes the defaults.
+exec zimon init
+stderr '^✓ Wrote ~/\.config/zimon/config\.toml$'
+stderr '^✓ Library: ~/\.local/share/zimon/library$'
+stderr '^✓ Languages: eng$'
+stderr '^Next: zimon search <words>   or   zimon browse$'
+exists $LIB
+grep '^languages = \[''eng''\]$' $ZIMON_CONFIG
+
+# Without a terminal, a second init refuses; --force rewrites the file,
+# keeping its settings.
+cp swedish.toml $ZIMON_CONFIG
+! exec zimon init
+stderr '^✗ ~/\.config/zimon/config\.toml already exists; zimon init --force overwrites it$'
+cmp $ZIMON_CONFIG swedish.toml
+exec zimon init --force
+stderr '^✓ Wrote'
+grep '^languages = \[''swe''\]$' $ZIMON_CONFIG
+grep '^keep_versions = 1$' $ZIMON_CONFIG
+
+# A broken config is reported by every command.
+cp broken.toml $ZIMON_CONFIG
+! exec zimon list
+stderr 'config\.toml: .*keep_version'
+
+# config edit runs $EDITOR (here cp, putting a file in place) and checks the result.
+rm $ZIMON_CONFIG
+env EDITOR=true
+exec zimon config edit
+exists $ZIMON_CONFIG
+env 'EDITOR=cp '$WORK/broken.toml
+! exec zimon config edit
+stderr '^✗ the edited config has a problem: .*keep_version'
+env EDITOR=
+
+# On a terminal, the first command starts with the setup wizard.
+rm $ZIMON_CONFIG
+ttyin -stdin answers.txt
+exec zimon verify
+stderr '^Welcome to zimon! Let''s set up a library first\.$'
+stderr 'Where should ZIM files live\? \[~/\.local/share/zimon/library\]'
+stderr 'Languages to show by default \(comma-separated ISO 639-3, or ''all''\)\? \[eng\]'
+stderr '✓ Library: ~/zim$'
+stderr '✓ Languages: eng, swe$'
+stderr '^No files to verify\.$'
+exists $HOME/zim
+grep '^library_dir = ''.*/home/zim''$' $ZIMON_CONFIG
+grep '^languages = \[''eng'', ''swe''\]$' $ZIMON_CONFIG
+
+-- swedish.toml --
+languages = ["swe"]
+-- broken.toml --
+keep_version = 2
+-- answers.txt --
+~/zim
+eng, swe

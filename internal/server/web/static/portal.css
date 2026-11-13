@@ -1,0 +1,102 @@
+:root {
+  --bg: #fdfdfc;
+  --fg: #1d1d1b;
+  --dim: #6b6b66;
+  --line: #e4e3df;
+  --card: #f5f4f1;
+  --accent: #2557c7;
+  --warn-bg: #fff4d6;
+  --warn-fg: #6a4b00;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615;
+    --fg: #e8e7e3;
+    --dim: #9b9a94;
+    --line: #2d2d2a;
+    --card: #1f1f1d;
+    --accent: #8cb0ff;
+    --warn-bg: #3a2f10;
+    --warn-fg: #f3d58a;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 0 16px 2rem;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem 1.25rem;
+  padding: .75rem 0;
+  border-bottom: 1px solid var(--line);
+}
+h1 { margin: 0; font-size: 1.25rem; }
+h1 a { color: var(--fg); }
+.search { display: flex; flex: 1 1 22rem; gap: .4rem; min-width: 0; }
+.search input { flex: 1; min-width: 0; }
+.search input, .search select, .search button {
+  font: inherit;
+  padding: .35rem .55rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--fg);
+}
+.search button { cursor: pointer; }
+nav { color: var(--dim); white-space: nowrap; }
+.problem {
+  margin: .75rem 0 0;
+  padding: .5rem .75rem;
+  border-radius: 6px;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+h2 { margin: 1.25rem 0 .1rem; font-size: 1.05rem; }
+.blurb { margin: 0 0 .5rem; color: var(--dim); }
+.books {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr));
+  gap: .5rem;
+}
+.books li {
+  display: flex;
+  gap: .6rem;
+  padding: .5rem;
+  border-radius: 8px;
+  background: var(--card);
+  min-width: 0;
+}
+.icon { /* a missing icon leaves just the square */
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  background: var(--line) center / contain no-repeat;
+}
+.books div { min-width: 0; }
+.books p { margin: .15rem 0 0; overflow-wrap: anywhere; }
+.title { font-weight: 600; }
+.badge {
+  display: inline-block;
+  padding: 0 .3rem;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  font-size: .8em;
+  vertical-align: 1px;
+}
+.meta { color: var(--dim); font-size: .9em; }
+.empty { margin-top: 2rem; color: var(--dim); }
+footer { margin-top: 2rem; color: var(--dim); font-size: .9em; }

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zimon</title>
+<link rel="stylesheet" href="/_zimon/portal.css">
+<script src="/_zimon/portal.js" defer></script>
+</head>
+<body>
+<header>
+  <h1><a href="/">zimon</a></h1>
+  <form class="search" action="/search" method="get" role="search">
+    <input name="pattern" type="search" placeholder="Search every book  ( / )" aria-label="Search every book" required>
+    {{- if gt (len .Langs) 1}}
+    <select name="books.filter.lang" aria-label="Language">
+      {{- range .Langs}}<option{{if eq . $.Lang}} selected{{end}}>{{.}}</option>{{end}}
+    </select>
+    {{- else if .Lang}}
+    <input type="hidden" name="books.filter.lang" value="{{.Lang}}">
+    {{- end}}
+    <button>Search</button>
+  </form>
+  <nav><a href="/library">All books</a> · {{.Books}} book{{if ne .Books 1}}s{{end}}, {{.Size}}</nav>
+</header>
+{{- if .Problem}}
+<p class="problem">{{.Problem}}</p>
+{{- end}}
+<main>
+{{- range .Sections}}
+  <section>
+    <h2>{{.Title}}</h2>
+    {{- if .Blurb}}<p class="blurb">{{.Blurb}}</p>{{end}}
+    <ul class="books">
+    {{- range .Books}}
+      <li>
+        <span class="icon"{{with .Illustration}} style="background-image: url('{{.}}')"{{end}}></span>
+        <div>
+          <a class="title" href="/viewer#{{.Name}}">{{.Title}}</a>
+          {{- range .Langs}} <span class="badge">{{.}}</span>{{end}}
+          {{- if .Flavour}} <span class="badge flavour">{{.Flavour}}</span>{{end}}
+          <p>{{if .Note}}{{.Note}}{{else}}{{.Summary}}{{end}}</p>
+          <p class="meta">{{.Size}}{{if .Date}} · {{.Date}}{{end}} · <a href="/random?content={{.Name}}">random article</a></p>
+        </div>
+      </li>
+    {{- end}}
+    </ul>
+  </section>
+{{- else}}
+  <p class="empty">No books yet. Add some with <code>zimon add</code>; see <code>zimon collections</code>.</p>
+{{- end}}
+</main>
+<footer>
+  Reading another language? Your browser can translate the page. Firefox does it on your own computer, so it works offline too.
+</footer>
+</body>
+</html>

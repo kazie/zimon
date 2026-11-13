@@ -1,0 +1,75 @@
+# remove by name, by @id, and with --keep-file.
+
+exec zimon add devdocs_en_bash devdocs_en_git @anime-manga --level light
+fake downloads 5
+
+# By name: the file goes, and so does its [items] line.
+exec zimon remove devdocs_en_bash --yes
+stdout '^−  devdocs_en_bash +delete +2\.00 MB +not in library\.toml$'
+stderr '^✓ Removed devdocs_en_bash \(freed 2\.00 MB\)$'
+stderr '^✓ Saved ~/\.config/zimon/library\.toml$'
+! exists $LIB/devdocs_en_bash_2026-10.zim
+! grep devdocs_en_bash $TOML
+! grep devdocs_en_bash $LIB/library.xml
+
+# A collection's ZIM is switched off, so the collection does not bring it back.
+exec zimon rm anime.stackexchange.com_en_all --yes
+stderr '^✓ Removed anime\.stackexchange\.com_en_all \(freed 3\.00 MB\)$'
+grep '^"anime.stackexchange.com_en_all" = "off"$' $TOML
+exec zimon apply
+stderr '^✓ Nothing to do'
+
+# --keep-file forgets the ZIM but leaves its file. Nothing is deleted, so it
+# needs no --yes.
+exec zimon remove devdocs_en_git --keep-file
+stdout '^−  devdocs_en_git +forget +2\.00 MB +the file stays on disk$'
+! stderr delete
+stderr '^✓ Removed devdocs_en_git; files left in ~/\.local/share/zimon/library$'
+exists $LIB/devdocs_en_git_2026-10.zim
+! grep devdocs_en_git $TOML
+! grep devdocs_en_git $LIB/library.xml
+exec zimon list
+! stdout devdocs_en_git
+
+# By @id: the collection and its ZIMs go.
+exec zimon remove @anime-manga --yes
+stdout '^−  allthetropes_en_all:maxi +delete '
+stdout '^−  evageeks_en_all:maxi +delete '
+! grep '^anime-manga =' $TOML
+! exists $LIB/allthetropes_en_all_maxi_2026-10.zim
+! exists $LIB/evageeks_en_all_maxi_2026-10.zim
+exec zimon list
+stderr '^Nothing here yet\.$'
+
+# Only what is in the library can be removed.
+! exec zimon remove nothere
+stderr '^✗ nothere is not in your library \(see: zimon list\)$'
+! exec zimon remove @japan
+stderr '^✗ @japan is not in library\.toml \(see: zimon collections\)$'
+
+# A kept file is checked, not downloaded again, when it is wanted back.
+exec zimon add devdocs_en_git
+stderr '^! devdocs_en_git_2026-10\.zim is already in the library folder; checking it instead of downloading$'
+stderr '^✓ devdocs_en_git → .*\(2\.00 MB, found on disk, sha-256 verified\)$'
+fake downloads 5
+
+# --keep-file still deletes partial downloads, so then it asks first. Here a
+# failed update leaves one next to the file.
+exec zimon add superuser.com_en_all
+fake bump superuser.com_en_all
+fake break-mirror all
+! exec zimon update superuser.com_en_all --yes
+! exec zimon remove superuser.com_en_all --keep-file
+stdout '^−  superuser\.com_en_all +forget +3\.00 MB +the file stays on disk; a partial download \(1\.05 MB\) is deleted$'
+stderr '^delete 1\.05 MB · '
+stderr '^✗ refusing to delete without confirmation; pass --yes$'
+exec zimon remove superuser.com_en_all --keep-file --yes
+stderr '^✓ Removed superuser\.com_en_all \(freed 1\.05 MB\); files left in ~/\.local/share/zimon/library$'
+exists $LIB/superuser.com_en_all_2026-10.zim
+
+# A ZIM that is only a partial download is simply deleted.
+! exec zimon add serverfault.com_en_all
+! exec zimon remove serverfault.com_en_all --keep-file
+stdout '^−  serverfault\.com_en_all +delete +1\.05 MB +partial download$'
+exec zimon remove serverfault.com_en_all --keep-file --yes
+stderr '^✓ Removed serverfault\.com_en_all \(freed 1\.05 MB\)$'

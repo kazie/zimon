@@ -1,0 +1,17 @@
+# Reference files kept around locally (sample catalog pages, .meta4 files).
+external/
+
+# Build output
+/zimon
+/cover.out
+/dist/
+/.demo/
+
+# Nix and direnv
+.direnv/
+result
+result-*
+
+# goreleaser before-hook output
+/completions/
+/manpages/
