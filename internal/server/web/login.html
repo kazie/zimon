@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zimon admin</title>
+<link rel="stylesheet" href="/_zimon/portal.css">
+<link rel="stylesheet" href="/_zimon/admin.css">
+</head>
+<body>
+<header>
+  <h1><a href="/">zimon</a></h1>
+  <nav>admin</nav>
+</header>
+<main class="login">
+  <h2>Sign in</h2>
+  {{- if .Problem}}<p class="problem">{{.Problem}}</p>{{end}}
+  <form method="post" action="/admin/login">
+    <label for="token">Token</label>
+    <input id="token" name="token" type="password" autocomplete="current-password" required autofocus placeholder="zimon_…">
+    <button>Sign in</button>
+  </form>
+  <p class="blurb">Make a token on the server with <code>zimon token add NAME</code>. Reading books needs no token.</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,22 @@
+[Unit]
+Description=Update Kiwix ZIM files with zimon
+Documentation=https://github.com/kazie/zimon
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=zimon
+Group=zimon
+Environment=ZIMON_CONFIG=/etc/zimon/config.toml
+ExecStart=/usr/local/bin/zimon update --yes --no-color
+TimeoutStartSec=infinity
+Nice=10
+IOSchedulingClass=idle
+
+# Hardening: zimon only needs the network and its own directories.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+ReadWritePaths=/srv/zim /var/lib/zimon

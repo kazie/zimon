@@ -1,0 +1,177 @@
+# An https:// remote: zimon serve, reached through its API with a token.
+# The commands run here and show the server's library. "server start" runs
+# one in the test process, with a home of its own in $WORK/server.
+
+server start
+exec zimon --config $SERVER_CONFIG add devdocs_en_bash
+stderr '^✓ devdocs_en_bash → '
+
+# add asks for the token (from stdin without a terminal) and checks it with
+# the server before saving anything.
+stdin wrong-token
+! exec zimon remote add srv $SERVER_URL
+stderr '^✗ srv turned down the token \(unknown token\); make one there with zimon token add, then add the remote again$'
+stderr '^  nothing saved$'
+! exists $HOME/.config/zimon/remotes.toml
+stdin server/token
+exec zimon remote add srv $SERVER_URL
+stderr '^✓ Added remote srv \(http://127\.0\.0\.1:\d+\)$'
+grep '^token = ''zimon_' $HOME/.config/zimon/remotes.toml
+exec zimon remote list
+stdout '^srv +http://127\.0\.0\.1:\d+ +\(its API\)$'
+exec zimon remote test srv
+stderr '^✓ srv answers: zimon test$'
+
+# Commands show the server's library, not this one's.
+exec zimon --remote srv list
+stdout '^✓ +devdocs_en_bash +'
+stderr '^1 ZIM · .* on disk · .*/server/library$'
+exec zimon list
+stderr '^Nothing here yet\.$'
+env ZIMON_REMOTE=srv
+exec zimon list --json
+stdout '"key": "devdocs_en_bash"'
+stdout '"state": "up_to_date"'
+
+# Search uses the server's catalog and languages.
+exec zimon search bash
+stdout '^✓ +devdocs_en_bash +'
+stderr '^1 result · languages: eng · zimon info <name> for details$'
+exec zimon info devdocs_en_bash
+stdout '^✓ +default +.* +up to date$'
+! exec zimon info devdocs_en_bsh
+stderr 'did you mean: devdocs_en_bash'
+
+exec zimon collections
+stdout '@linux'
+exec zimon collections show @linux
+stdout '^Levels: light '
+! exec zimon collections show nope
+stderr '^✗ no collection "nope"; there are: @'
+exec zimon budget
+stderr '^Library .* on disk, .* when complete'
+
+# Shell completion asks the server too.
+exec zimon __complete remove ''
+stdout '^devdocs_en_bash\tup to date$'
+exec zimon __complete add devdocs_en_g
+stdout '^devdocs_en_go\tGo Docs$'
+stdout '^devdocs_en_git\t'
+exec zimon __complete search --category ''
+stdout '^stack_exchange$'
+exec zimon __complete level devdocs_en_bash ''
+stdout '^default\t2\.00 MB$'
+
+# jobs lists what the server did through its API.
+exec zimon jobs
+stderr '^No jobs yet\.$'
+server refresh
+exec zimon jobs
+stdout '^1 +done +refresh +script +\d{4}-'
+exec zimon jobs 1
+stdout '^Job 1  refresh  done$'
+stdout '^  Catalog (unchanged|refreshed)'
+! exec zimon jobs 99
+stderr '^✗ no job 99 on srv \(see: zimon jobs\)$'
+
+# Changes: the plan comes from the server; the change runs there as a job,
+# shown here as it goes, as if it ran here.
+exec zimon add devdocs_en_go
+stderr '^✓ devdocs_en_go → .*/server/library/devdocs_en_go_2026-10\.zim \(.*, sha-256 verified\)$'
+exists $WORK/server/library/devdocs_en_go_2026-10.zim
+! exists $LIB/devdocs_en_go_2026-10.zim
+exec zimon add @linux --no-download
+stderr '^✓ Saved .*/server/library\.toml$'
+stderr '^Download it with: zimon apply$'
+exec zimon apply --dry-run
+stdout '^\+  archlinux_en_all:maxi '
+stderr '^Nothing changed \(dry run\)\.$'
+exec zimon remove @linux devdocs_en_go --yes
+stderr '^✓ Removed devdocs_en_go \(freed .*\)$'
+! exists $WORK/server/library/devdocs_en_go_2026-10.zim
+! exec zimon level @linux huge
+stderr '^✗ "huge": a collection''s level is light, standard or deep$'
+exec zimon budget 10GB
+stderr '^✓ Saved .*/server/library\.toml$'
+stderr 'budget 10\.0 GB'
+exec zimon budget 10GB
+stderr '^✓ .*/server/library\.toml already says so$'
+! exec zimon suggest @linux --budget 1MB
+stderr '^✗ even at light these need about .*, over the 1\.00 MB budget'
+
+fake bump devdocs_en_bash
+exec zimon hold devdocs_en_bash
+stderr '^✓ Saved .*/server/library\.toml$'
+grep '^"devdocs_en_bash" = "2026-10-20"$' $WORK/server/library.toml
+exec zimon update --check
+stderr '^= Held at the release on disk: devdocs_en_bash$'
+exec zimon hold
+stdout '^=  devdocs_en_bash .* held \(2026-11-20 is out\)$'
+exec zimon __complete unhold ''
+stdout '^devdocs_en_bash\t2026-10-20$'
+exec zimon unhold devdocs_en_bash
+! exec zimon unhold devdocs_en_bash
+stderr '^✗ devdocs_en_bash is not held \(see: zimon hold\)$'
+exec zimon update --check
+stdout '^↑  devdocs_en_bash  2026-10-20 → 2026-11-20 '
+exec zimon update --yes
+stderr '(?s)✓ devdocs_en_bash → .*/server/library/devdocs_en_bash_2026-11\.zim \(2\.00 MB, sha-256 verified\)\n✓ Removed old version devdocs_en_bash_2026-10\.zim \(freed 2\.00 MB\)\n'
+exec zimon update
+stderr '^✓ Everything is up to date\.$'
+exec zimon verify
+stderr '^✓ devdocs_en_bash ok$'
+! exec zimon verify nothere
+stderr '^✗ nothere is not in your library \(see: zimon list\)$'
+exec zimon prune
+stderr '^✓ Nothing to prune\.$'
+exec zimon refresh
+stderr '^✓ Catalog unchanged \(\d+ entries\)$'
+
+# A ZIM from a URL is added there; a file here can't be.
+fake own mysite.zim mysite_en_all 1
+exec zimon add $FAKE_URL/own/mysite.zim --name mine
+stderr '^✓ mine → .*/server/library/mysite\.zim \(1\.05 MB, not verified: 127\.0\.0\.1:\d+ has no checksum\)$'
+grep '^"mine" = "http://' $WORK/server/library.toml
+fake zim notes.zim notes_en_all 1
+! exec zimon add notes.zim
+stderr 'notes\.zim: a file here can''t be added on srv; add it from a URL, or on the server itself$'
+
+# Each change was a job there.
+exec zimon jobs
+stdout '^\d+ +done +refresh +script '
+stdout '^\d+ +done +update +script '
+stdout '^\d+ +done +hold devdocs_en_bash +script '
+stdout '^\d+ +done +add devdocs_en_go +script '
+
+exec zimon jobs 1 --follow
+stderr '^✓ Job 1 done: refresh$'
+! exec zimon jobs 1 --cancel
+stderr '^✗ the job is not queued or running$'
+! exec zimon jobs --follow
+stderr 'give the job''s id'
+
+# jobs on the server itself.
+env ZIMON_REMOTE=
+exec zimon --config $SERVER_CONFIG jobs 1
+stdout '^Job 1  refresh  done$'
+! exec zimon --config $SERVER_CONFIG jobs 1 --cancel
+stderr 'follow or cancel one with --remote'
+
+# Commands that only make sense here stay here.
+! exec zimon --remote srv serve
+stderr '^✗ zimon serve does not work on an https:// remote \(srv\); run it there, or through an ssh:// remote$'
+! exec zimon --remote srv browse
+stderr '^✗ browse needs an interactive terminal; try ''zimon search'' instead$'
+! exists $LIB/devdocs_en_bash_2026-10.zim
+
+# A wrong address, and plain http to another machine.
+stdin server/token
+! exec zimon remote add web $SERVER_URL/nothing
+stderr '^✗ web answered 503 Service Unavailable with text/plain, not zimon''s API; is http://127\.0\.0\.1:\d+/nothing the address of zimon serve\?$'
+stdin server/token
+! exec zimon remote add far http://192.0.2.1:9
+stderr '^! http://192\.0\.2\.1:9 is plain http: the token crosses the network unencrypted'
+stderr '^✗ far does not answer: '
+
+-- wrong-token --
+zimon_wrong

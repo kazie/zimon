@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zimon admin</title>
+<link rel="stylesheet" href="/_zimon/portal.css">
+<link rel="stylesheet" href="/_zimon/admin.css">
+<script src="/_zimon/admin.js" defer></script>
+</head>
+<body>
+<header>
+  <h1><a href="/">zimon</a></h1>
+  <nav class="actions">
+    <button id="apply" title="Make the disk match library.toml">Apply library.toml…</button>
+    <button id="update" title="Fetch newer releases">Update now</button>
+    <form method="post" action="/admin/logout"><button>Sign out</button></form>
+  </nav>
+</header>
+<p class="problem" id="problem" hidden></p>
+<main>
+  <section>
+    <h2>Disk</h2>
+    <div id="disk" class="disk"></div>
+  </section>
+  <section>
+    <h2>Jobs</h2>
+    <ul id="jobs" class="jobs"></ul>
+  </section>
+  <section>
+    <h2>Collections</h2>
+    <p class="blurb">Pick how deep each interest goes. Every change shows its plan first.</p>
+    <ul id="collections" class="cols"></ul>
+  </section>
+  <section>
+    <h2>Your ZIMs</h2>
+    <table id="items" class="items"></table>
+  </section>
+  <section>
+    <h2>Add from the catalog</h2>
+    <form id="search" class="search" role="search">
+      <input name="q" type="search" placeholder="Search the Kiwix catalog" aria-label="Search the catalog">
+      <button>Search</button>
+    </form>
+    <table id="results" class="items"></table>
+  </section>
+</main>
+<dialog id="plan">
+  <h2 id="plan-title"></h2>
+  <div id="plan-body"></div>
+  <form method="dialog" class="buttons">
+    <button value="cancel">Cancel</button>
+    <button value="ok" id="plan-ok">Go ahead</button>
+  </form>
+</dialog>
+</body>
+</html>

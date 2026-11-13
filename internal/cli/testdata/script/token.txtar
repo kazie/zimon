@@ -1,0 +1,20 @@
+# Tokens for zimon serve's API: shown once, listed by name, removed by name.
+
+exec zimon token add laptop
+stdout '^zimon_[A-Za-z0-9_-]{43}$'
+stderr 'Token laptop made\. It is shown only now'
+
+! exec zimon token add laptop
+stderr 'already a token called laptop'
+! exec zimon token add 'my laptop'
+stderr 'use letters, digits'
+
+exec zimon token list
+stdout 'laptop +\d{4}-\d\d-\d\d +never'
+
+exec zimon token remove laptop
+stderr 'Removed token laptop'
+! exec zimon token remove laptop
+stderr 'no token called laptop'
+exec zimon token list
+stderr 'No tokens yet'

@@ -1,0 +1,68 @@
+# apply --dry-run, and apply after a hand edit.
+
+exec zimon add devdocs_en_bash
+exec zimon apply
+! stdout .
+stderr '^✓ Nothing to do: your library matches library\.toml\.$'
+
+# After a hand edit, apply --dry-run shows the plan and changes nothing.
+cp edited.toml $TOML
+exec zimon apply --dry-run
+stdout '^−  devdocs_en_bash +delete +2\.00 MB +not in library\.toml$'
+stdout '^\+  devdocs_en_git +new · 2026-10-20 +3\.00 MB +hand-picked$'
+stdout -count=3 ' anime-manga$'
+stderr '^download about 1\.50 GB · delete 2\.00 MB · library 2\.00 MB → 1\.50 GB · .* free$'
+stderr '^Nothing changed \(dry run\)\.$'
+exists $LIB/devdocs_en_bash_2026-10.zim
+fake downloads 1
+
+# apply makes the disk match. It deletes only with --yes (or on a terminal).
+! exec zimon apply
+stderr 'refusing to delete without confirmation; pass --yes'
+fake downloads 1
+exec zimon apply --yes
+stderr '^✓ Removed devdocs_en_bash \(freed 2\.00 MB\)$'
+stderr -count=4 'sha-256 verified\)$'
+! exists $LIB/devdocs_en_bash_2026-10.zim
+fake downloads 5
+exec zimon apply
+stderr '^✓ Nothing to do'
+
+# The file stays as written, and later edits keep its comments.
+cmp $TOML edited.toml
+exec zimon add devdocs_en_nix
+grep '^# My library$' $TOML
+grep '^anime-manga = "light"   # tropes!$' $TOML
+grep '^"devdocs_en_nix" = "on"$' $TOML
+
+# Unknown names in library.toml are warnings, not errors.
+cp typo.toml $TOML
+exec zimon apply --dry-run
+stderr '^! unknown collection "animu" \(see: zimon collections\)$'
+stderr '^! devdocs_en_gitt is not in the Kiwix catalog right now$'
+# ... and while there are any, apply deletes nothing.
+stderr '^! Nothing is deleted while library\.toml has the problems above\. Waiting: '
+! stdout 'delete'
+
+# A syntax error stops every command that reads the file.
+cp broken.toml $TOML
+! exec zimon apply
+stderr '^✗ .*/library\.toml: toml: expected '']'' to close table name$'
+! exec zimon list
+stderr 'library\.toml: toml:'
+
+-- edited.toml --
+# My library
+[collections]
+anime-manga = "light"   # tropes!
+
+[items]
+"devdocs_en_git" = "on"
+-- typo.toml --
+[collections]
+animu = "light"
+
+[items]
+"devdocs_en_gitt" = "on"
+-- broken.toml --
+[collections

@@ -1,0 +1,23 @@
+# Weekly update PRs for Go modules, the GitHub Actions in .github/workflows,
+# and the container base images in the Containerfile (Go, kiwix-serve).
+# After a gomod update, run `nix build` and fix vendorHash in flake.nix.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      go:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly

@@ -1,0 +1,63 @@
+# hold keeps a ZIM's release: update and apply skip newer releases and
+# flavour changes until unhold.
+
+exec zimon add devdocs_en_bash wikivoyage_en_all:nopic
+
+! exec zimon hold devdocs_en_go
+stderr '^✗ devdocs_en_go has no file in your library to hold \(see: zimon list\)$'
+! exec zimon unhold devdocs_en_bash
+stderr '^✗ devdocs_en_bash is not held \(see: zimon hold\)$'
+exec zimon hold
+stderr '^Nothing is held\.$'
+
+exec zimon hold devdocs_en_bash wikivoyage_en_all:nopic
+stderr '^✓ Saved ~/\.config/zimon/library\.toml$'
+stderr '^update and apply keep this release\. Let it change again with: zimon unhold devdocs_en_bash wikivoyage_en_all$'
+grep '^\[hold\]$' $TOML
+grep '^"devdocs_en_bash" = "2026-10-20"$' $TOML
+grep '^"wikivoyage_en_all" = "2026-10-01"$' $TOML
+exec zimon hold devdocs_en_bash
+stderr 'library\.toml already says so$'
+
+# A newer release waits.
+fake bump devdocs_en_bash
+exec zimon update --yes
+! stdout .
+stderr '^= Held at the release on disk: devdocs_en_bash$'
+stderr '^  Let it change again with: zimon unhold NAME$'
+exists $LIB/devdocs_en_bash_2026-10.zim
+exec zimon list
+stdout '^=  devdocs_en_bash .* held \(2026-11-20 is out\)$'
+! stderr 'update available'
+exec zimon hold
+stdout '^=  devdocs_en_bash .* 2026-10-20 +held \(2026-11-20 is out\)$'
+stdout '^=  wikivoyage_en_all:nopic .* 2026-10-01 +held$'
+exec zimon list --json
+stdout '"state": "held"'
+
+# So does a flavour change, and the held flavour stays.
+exec zimon level wikivoyage_en_all maxi
+! stdout .
+stderr '^= Held at the release on disk: wikivoyage_en_all:nopic$'
+exec zimon apply --yes
+! stdout .
+exists $LIB/wikivoyage_en_all_nopic_2026-10.zim
+exec zimon list
+stdout '^=  wikivoyage_en_all:nopic .* held \(zimon unhold switches to wikivoyage_en_all:maxi\)$'
+! stderr 'asks for changes'
+fake downloads 2
+
+# unhold lets update bring it up to date.
+exec zimon unhold devdocs_en_bash:
+stderr '^Bring it up to date with: zimon update devdocs_en_bash$'
+! grep '^"devdocs_en_bash" = "2026' $TOML
+grep '^"wikivoyage_en_all" = ' $TOML
+exec zimon update --yes
+stdout '^↑  devdocs_en_bash '
+exists $LIB/devdocs_en_bash_2026-11.zim
+fake downloads 3
+
+# Removing a held ZIM drops its hold.
+exec zimon remove wikivoyage_en_all --yes
+! grep wikivoyage_en_all $TOML
+fake downloads 3

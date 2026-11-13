@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("<feed><entry><id>0</id><name>0</name><updated>0000000000</updated><link rel=\"http://opds-spec.org/acquisition/open-access\"type=\"application/x-zim\"/></entry></feed>")

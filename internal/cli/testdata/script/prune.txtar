@@ -1,0 +1,36 @@
+# prune: stale partial downloads and stray files.
+
+exec zimon add devdocs_en_bash
+exec zimon prune
+! stdout .
+stderr '^✓ Nothing to prune\.$'
+
+# A download that failed half way keeps its verified first piece...
+fake break-mirror all
+! exec zimon add superuser.com_en_all
+stderr 'download failed after trying every mirror'
+
+# ...until a newer release makes it stale. A stray file is junk as well.
+fake bump superuser.com_en_all
+exec zimon refresh
+cp stray.txt $LIB/.partial/stray.part
+exec zimon prune --dry-run
+stdout '^FILE +SIZE +WHY$'
+stdout '^\.partial/[0-9a-f-]{36}\.part +1\.05 MB +stale partial download$'
+stdout '^\.partial/stray\.part +6 B +'
+stderr '^in ~/\.local/share/zimon/library$'
+exists $LIB/.partial/stray.part
+
+# Without a terminal prune deletes only with --yes.
+! exec zimon prune
+stderr '^✗ refusing to delete without confirmation; pass --yes$'
+exists $LIB/.partial/stray.part
+exec zimon prune --yes
+stderr '^✓ Freed 1\.05 MB$'
+! exists $LIB/.partial/stray.part
+exec zimon prune
+stderr '^✓ Nothing to prune\.$'
+exists $LIB/devdocs_en_bash_2026-10.zim
+
+-- stray.txt --
+stray

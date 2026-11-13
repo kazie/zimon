@@ -1,0 +1,14 @@
+[Unit]
+Description=Serve Kiwix ZIM files (kiwix-serve via zimon)
+Documentation=https://github.com/kazie/zimon
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+# zimon writes library.xml and runs kiwix-serve as its child, which reloads
+# the library on its own when zimon adds, updates or removes a ZIM.
+ExecStart=%h/go/bin/zimon serve --no-color
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

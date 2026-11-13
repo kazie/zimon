@@ -1,0 +1,11 @@
+# Kept out of container builds (podman and buildah read this file too).
+.git
+.github
+.direnv
+.demo
+docs
+dist
+result
+result-*
+cover.out
+external

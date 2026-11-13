@@ -1,0 +1,56 @@
+# Shell completion works from the cached catalog, and never fetches it or
+# creates a database.
+
+exec zimon __complete add wiki
+stdout '^:4$'
+! stdout wikipedia
+! exists $DB
+
+exec zimon refresh
+
+# add @ lists the collections.
+exec zimon __complete add @
+stdout '^@linux\tLinux & sysadmin$'
+stdout '^@anime-manga\tAnime & manga$'
+stdout '^:4$'
+stderr '^Completion ended with directive: ShellCompDirectiveNoFileComp$'
+
+# Names complete from the catalog, flags from its facets.
+exec zimon __complete add devdocs_en_
+stdout '^devdocs_en_bash\tBash Docs$'
+! stdout '^@'
+exec zimon __complete add ''
+stdout '^@linux\t'
+stdout '^devdocs_en_go\tGo Docs$'
+exec zimon __complete search --category ''
+stdout '^stack_exchange$'
+exec zimon __complete search --lang ''
+stdout '^eng\t\d+ entries$'
+exec zimon __complete add @linux --level ''
+stdout '^light$'
+stdout '^deep$'
+exec zimon __complete suggest @japan ''
+stdout '^@linux\t'
+
+# remove, update and level complete from your library.
+exec zimon add devdocs_en_bash @anime-manga --level light --no-download
+exec zimon __complete remove ''
+stdout '^@anime-manga\tAnime & manga$'
+! stdout '^@linux'
+stdout '^devdocs_en_bash\tmissing$'
+exec zimon __complete update ''
+stdout '^evageeks_en_all:maxi\tmissing$'
+exec zimon __complete level wikivoyage_en_all ''
+stdout '^standard$'
+stdout '^off$'
+stdout '^nopic\t233 MB$'
+exec zimon __complete level @anime-manga ''
+stdout '^deep$'
+! stdout '^on$'
+fake downloads 0
+
+# The completion scripts.
+exec zimon completion fish
+stdout 'complete -c zimon'
+exec zimon completion bash
+stdout '__start_zimon'

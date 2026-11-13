@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("<metalink xmlns=\"urn:ietf:params:xml:ns:metalink\"><file name=\"0\"><size>3</size><pieces length=\"2\" type=\"shA-1\"><hash></hash><hash></hash></pieces></file></metalink>")

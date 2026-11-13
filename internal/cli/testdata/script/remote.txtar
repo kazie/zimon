@@ -1,0 +1,120 @@
+# remote add, list, test and remove, and commands sent to a remote with
+# --remote or ZIMON_REMOTE. The stand-in ssh logs what it was asked to $WORK/ssh.log
+# and runs the command "on the server": a home of its own in $WORK/server.
+
+[!unix] skip 'the stand-in ssh is a shell script'
+chmod 755 bin/ssh
+
+exec zimon remote
+stderr '^No remotes yet\.$'
+
+# add checks the name and the URL.
+! exec zimon remote add 'my nas' ssh://nas
+stderr '^✗ "my nas": a remote''s name is letters, digits, - and _$'
+! exec zimon remote add nas https://nas.example --command zimon
+stderr '^✗ --command is for ssh:// remotes$'
+! exec zimon remote add nas nas.example
+stderr 'give ssh://\[user@\]host\[:port\] or https://host'
+exec zimon remote add nas ssh://kazie@nas.example:2222
+stderr '^✓ Added remote nas \(ssh://kazie@nas\.example:2222\)$'
+exec zimon remote add box ssh://box --command 'sudo -u zimon zimon'
+! exec zimon remote add nas ssh://other
+stderr 'there is a remote nas already; zimon remote remove nas first'
+exec zimon remote list
+stdout '^box +ssh://box +sudo -u zimon zimon$'
+stdout '^nas +ssh://kazie@nas\.example:2222 +zimon$'
+grep '^\[nas\]$' $HOME/.config/zimon/remotes.toml
+
+# test asks the remote for zimon's version.
+exec zimon remote test nas
+stderr '^✓ nas answers: zimon test$'
+grep '^host=kazie@nas\.example port=2222 tty=no command=zimon --version$' $WORK/ssh.log
+
+# --remote runs a command there: the ZIM lands in the server's library.
+exec zimon --remote nas add devdocs_en_bash
+stderr '^✓ devdocs_en_bash → ~/\.local/share/zimon/library/devdocs_en_bash_2026-10\.zim'
+exists $WORK/server/.local/share/zimon/library/devdocs_en_bash_2026-10.zim
+! exists $LIB/devdocs_en_bash_2026-10.zim
+grep 'command=zimon add devdocs_en_bash$' $WORK/ssh.log
+
+# So does ZIMON_REMOTE. Arguments keep their spaces, flags only meant for
+# here stay here, and the exit code comes back.
+env ZIMON_REMOTE=nas
+exec zimon --config $ZIMON_CONFIG list
+stdout '^✓  devdocs_en_bash '
+grep 'command=zimon list$' $WORK/ssh.log
+exec zimon search 'bash docs' -n 1
+stdout devdocs_en_bash
+grep 'command=zimon search ''bash docs'' -n 1$' $WORK/ssh.log
+! exec zimon info nothere
+stderr '"nothere" is not in the catalog'
+
+# An empty --remote runs a command here after all.
+exec zimon --remote= list
+stderr '^Nothing here yet\.$'
+
+# Shell completion asks the remote too.
+exec zimon __complete remove ''
+stdout '^devdocs_en_bash\tup to date$'
+grep 'command=zimon __complete remove ''''$' $WORK/ssh.log
+
+# Managing remotes, completion scripts, help, the man page and --version stay
+# here, and so does completing --remote itself.
+cp $WORK/ssh.log $WORK/before.log
+exec zimon remote list
+stdout '^nas '
+exec zimon completion fish
+stdout 'complete -c zimon'
+exec zimon help remote
+stdout 'A remote is zimon on another machine'
+exec zimon man
+stdout '^\.TH ZIMON 1 '
+exec zimon --version
+stdout '^zimon test$'
+exec zimon __complete --remote ''
+stdout '^box\tssh://box$'
+exec zimon __complete remote test ''
+stdout '^nas\tssh://kazie@nas\.example:2222$'
+cmp $WORK/ssh.log $WORK/before.log
+
+# A remote not in remotes.toml is an error.
+env ZIMON_REMOTE=nope
+! exec zimon list
+stderr '^✗ no remote "nope" in ~/\.config/zimon/remotes\.toml; add it with: zimon remote add nope ssh://\[user@\]host$'
+env ZIMON_REMOTE=
+
+# test says when zimon does not answer.
+exec zimon remote add dead ssh://dead --command false
+! exec zimon remote test dead
+stderr '^✗ dead does not answer: exit status 1$'
+stderr '^The command was: .*/bin/ssh -n -o BatchMode=yes -o ConnectTimeout=5 dead -- ''false --version''$'
+
+# remove forgets a remote; nothing on it changes.
+exec zimon remote remove box
+stderr '^✓ Removed remote box$'
+! exec zimon remote remove box
+stderr 'no remote "box"'
+exists $WORK/server/.local/share/zimon/library/devdocs_en_bash_2026-10.zim
+
+-- bin/ssh --
+#!/bin/sh
+# Stand-in for ssh: log what was asked, then run the command in a home of
+# its own, as on another machine (which sees no ZIMON_REMOTE).
+tty=no port=
+while [ $# -gt 0 ]; do
+	case $1 in
+	-t) tty=yes; shift ;;
+	-p) port=$2; shift 2 ;;
+	-o) shift 2 ;;
+	--) shift; break ;;
+	-*) shift ;;
+	*) host=$1; shift ;;
+	esac
+done
+echo "host=$host port=$port tty=$tty command=$*" >>"$WORK/ssh.log"
+server=$WORK/server
+mkdir -p "$server/.config/zimon"
+[ -f "$server/.config/zimon/config.toml" ] || cp "$ZIMON_CONFIG" "$server/.config/zimon/config.toml"
+unset ZIMON_REMOTE
+export HOME="$server" XDG_CONFIG_HOME="$server/.config" XDG_DATA_HOME="$server/.local/share" ZIMON_CONFIG="$server/.config/zimon/config.toml"
+exec sh -c "$*"

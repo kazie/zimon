@@ -1,0 +1,26 @@
+# Help and the man page come from Fang, and need no config.
+mv $ZIMON_CONFIG $WORK/away.toml
+
+exec zimon --help
+stdout 'zimon finds, downloads, verifies, updates and serves Kiwix ZIM files'
+stdout '^  MANAGE YOUR LIBRARY:'
+stdout '^    level <@collection \| name> <level \| flavour \| on \| off \| default> \[--flags\] +Change how deep'
+stdout 'Check files on disk against their sha-256 again'
+! stdout '\x1b\['
+! stdout '^    man '
+
+exec zimon verify --help
+stdout '^  USAGE'
+stdout 'zimon verify \[name\[:flavour\]\.\.\.\] \[--flags\]'
+
+# The man page, dated by $SOURCE_DATE_EPOCH for reproducible packages.
+env SOURCE_DATE_EPOCH=315532800
+exec zimon man
+stdout '^\.TH ZIMON 1 "1980-01-01" '
+stdout '^\.SH NAME$'
+stdout '^zimon - A friendly manager for Kiwix ZIM files$'
+stdout '^\\fBlevel\\fP '
+stdout '^\\fB-y, --yes\\fP$'
+! stdout '\\fB--[a-z] --'
+
+! exists $ZIMON_CONFIG

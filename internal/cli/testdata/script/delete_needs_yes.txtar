@@ -1,0 +1,33 @@
+# A delete without a terminal is refused unless --yes says so. On a terminal
+# zimon asks, and no is the default.
+
+exec zimon add devdocs_en_bash
+cp $TOML before.toml
+
+! exec zimon remove devdocs_en_bash
+stdout '^−  devdocs_en_bash +delete '
+stderr '^✗ refusing to delete without confirmation; pass --yes$'
+exists $LIB/devdocs_en_bash_2026-10.zim
+cmp $TOML before.toml
+
+# The same for a plan that deletes after a hand edit.
+cp empty.toml $TOML
+! exec zimon apply
+stderr '^✗ refusing to delete without confirmation; pass --yes$'
+exists $LIB/devdocs_en_bash_2026-10.zim
+
+# On a terminal, enter keeps the file; y deletes it.
+ttyin -stdin enter.txt
+exec zimon apply
+stderr 'Delete 2\.00 MB\? \[y/N\] $'
+exists $LIB/devdocs_en_bash_2026-10.zim
+ttyin -stdin yes.txt
+exec zimon apply
+stderr 'Delete 2\.00 MB\? \[y/N\] ✓ Removed devdocs_en_bash \(freed 2\.00 MB\)$'
+! exists $LIB/devdocs_en_bash_2026-10.zim
+
+-- empty.toml --
+-- enter.txt --
+
+-- yes.txt --
+y

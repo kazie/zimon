@@ -1,0 +1,25 @@
+# sqlc turns the store's SQL into typed Go: `just generate` writes gen/,
+# `nix flake check` checks it is up to date. Lists go in as JSON arrays
+# (json_each), so every query is fixed SQL.
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema.sql
+    queries: queries
+    gen:
+      go:
+        package: gen
+        out: gen
+        emit_empty_slices: true
+        emit_prepared_queries: true
+        # Go's names for columns, so rows convert to the store's types.
+        rename:
+          uuid: UUID
+          zim_uuid: ZimUUID
+          sha256: SHA256
+          sha256_uuid: SHA256UUID
+          etag: ETag
+          meta4_url: Meta4URL
+        overrides:
+          - column: downloads.pulled
+            go_type: bool

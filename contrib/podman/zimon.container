@@ -1,0 +1,46 @@
+# zimon as a Podman Quadlet: systemd runs and updates the container.
+#
+# Rootless (as your user):
+#   mkdir -p ~/.config/containers/systemd
+#   cp zimon.container ~/.config/containers/systemd/
+#   systemctl --user daemon-reload
+#   systemctl --user start zimon
+#   loginctl enable-linger "$USER"     # keep it running when you log out
+# As root, put it in /etc/containers/systemd/ and drop --user.
+#
+# Then add ZIMs from the host with:
+#   podman exec zimon zimon add @linux
+# or from your laptop (zimon remote add box ssh://you@host --command "podman exec -it zimon zimon").
+
+[Unit]
+Description=zimon: offline Wikipedia and more, in your browser
+
+[Container]
+Image=ghcr.io/kazie/zimon:latest
+ContainerName=zimon
+# A named volume holds config.toml, library.toml, the ZIMs and the database.
+Volume=zimon-data:/data
+# Or a directory on the host. :Z relabels it for SELinux, and keep-id maps
+# your user to the container's (uid 1001) so the files stay yours:
+#   Volume=/srv/zim:/data:Z
+#   UserNS=keep-id:uid=1001,gid=1001
+# This machine only; put nginx (contrib/nginx/zimon.conf) in front for HTTPS,
+# or publish 8080:8080 to share it on your network.
+PublishPort=127.0.0.1:8080:8080
+# The admin page (http://localhost:8081/admin), on its own port so books
+# can't reach it. Sign in with a token from: podman exec zimon zimon token add NAME
+PublishPort=127.0.0.1:8081:8081
+HealthCmd=busybox wget -qO- http://127.0.0.1:8080/api/v1/status
+HealthInterval=1m
+# An unhealthy zimon is stopped, and Restart= starts it again.
+HealthOnFailure=kill
+# podman auto-update (podman-auto-update.timer) pulls new releases.
+AutoUpdate=registry
+
+[Service]
+Restart=on-failure
+# Pulling the image the first time can take a while.
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

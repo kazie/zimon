@@ -1,0 +1,78 @@
+# search, info and refresh.
+
+# search refreshes the catalog first, and shows your languages.
+exec zimon search wikipedia
+stderr '^Refreshing the Kiwix catalog…$'
+stdout '^   NAME +TITLE +LANG +SIZE +DATE$'
+stdout '^   wikipedia_en_all:maxi +Wikipedia +eng +127 GB +2026-08-25$'
+stdout '^   wikipedia_en_100 +Wikipedia 100 +eng +24\.0 MB +2026-08-20$'
+! stdout wikipedia_sv_all
+stderr ' result.* · languages: eng · zimon info <name> for details$'
+
+# The cached catalog is used while it is fresh.
+exec zimon search wikipedia --lang swe
+! stderr Refreshing
+stdout '^   wikipedia_sv_all:nopic +Wikipedia +swe +9\.20 GB +2026-09-02$'
+! stdout wikipedia_en
+stderr '^2 results · languages: swe · '
+
+# Every word must match; --max-size, --category and --limit narrow it down.
+exec zimon search stack exchange --max-size 5MB
+stdout '^   superuser\.com_en_all +Super User +eng +3\.00 MB +2026-10-19$'
+! stdout unix\.stackexchange
+! stdout wikipedia
+exec zimon search --all-langs --category wikipedia --limit 2
+stdout -count=3 '^   '
+stderr 'showing 2 \(--limit 0 for all\)'
+! stderr languages
+
+# No matches suggests the other languages.
+exec zimon search wikipedia swedish
+stderr '^No matches\.$'
+stderr '^Searched eng only\. Try --all-langs\.$'
+
+# info shows the details and every flavour.
+exec zimon info wikipedia_en_all
+stdout '^Wikipedia  wikipedia_en_all$'
+stdout '^The free encyclopedia$'
+stdout '^  Category   wikipedia$'
+stdout '^  Contains   pictures, no videos, full articles, full-text search$'
+stdout '^   FLAVOUR +SIZE +DATE +ARTICLES +MEDIA +STATUS$'
+stdout '^   mini +14\.4 GB +2026-09-09 +18,095,848 +33,992$'
+stderr '^Add it with: zimon add wikipedia_en_all:<flavour>$'
+exec zimon info wikipedia_en_all:mini
+stdout '^  Contains   pictures, no videos, intros only, full-text search$'
+stderr '^Add it with: zimon add wikipedia_en_all:mini$'
+exec zimon info devdocs_en_go
+stdout '^   default +6\.00 MB +2026-10-12 +2,210 +4$'
+stderr '^Add it with: zimon add devdocs_en_go$'
+
+# Unknown names and flavours are errors with suggestions.
+! exec zimon info wikipedia_xx_all
+stderr '^✗ "wikipedia_xx_all" is not in the catalog$'
+stderr '^  did you mean: .*wikipedia_en_all'
+! exec zimon info wikipedia_en_all:huge
+stderr '^✗ wikipedia_en_all has no flavour "huge"$'
+stderr '^  available: wikipedia_en_all:maxi, wikipedia_en_all:mini, wikipedia_en_all:nopic$'
+! exec zimon info
+stderr 'accepts 1 arg'
+
+# browse needs a terminal.
+! exec zimon browse
+stderr '^✗ browse needs an interactive terminal; try ''zimon search'' instead$'
+
+# Once added, search and info show it as installed.
+exec zimon add devdocs_en_go
+exec zimon search go docs
+stdout '^✓  devdocs_en_go +Go Docs'
+exec zimon info devdocs_en_go
+stdout '^✓  default .* up to date$'
+
+# refresh fetches the catalog only when it changed.
+exec zimon refresh
+stderr '^✓ Catalog unchanged \(49 entries\)$'
+fake bump devdocs_en_go
+exec zimon refresh
+stderr '^✓ Catalog updated: 49 entries$'
+exec zimon info devdocs_en_go
+stdout '2026-11-12 .* update available → 2026-11-12$'
