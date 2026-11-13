@@ -15,8 +15,8 @@ jobs:
   fuzz:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: false # the cache key is shared; let the CI test job fill it
@@ -30,7 +30,7 @@ jobs:
           git ls-files --others --exclude-standard -z -- '*/testdata/fuzz/*' | xargs -0 -r cp --parents -t crashers
       - name: Upload crashing inputs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fuzz-crashers
           path: crashers
