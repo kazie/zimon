@@ -8,7 +8,7 @@
 # zimon is cross-compiled on the build machine, and the final stage only
 # copies files, so a multi-arch build runs nothing under emulation.
 
-FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.26.10-alpine AS build
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.27.0-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
