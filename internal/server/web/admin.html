@@ -8,49 +8,79 @@
 <link rel="stylesheet" href="/_zimon/admin.css">
 <script src="/_zimon/admin.js" defer></script>
 </head>
-<body>
-<header>
-  <h1><a href="/">zimon</a></h1>
+<body class="admin">
+<header class="top">
+  <h1><a href="/">zimon</a> <span class="note">admin</span></h1>
+  <span id="kiwix" class="status" hidden></span>
+  <a id="activity" class="pill" href="#jobs" hidden></a>
   <nav class="actions">
     <button id="apply" title="Make the disk match library.toml">Apply library.toml…</button>
     <button id="update" title="Fetch newer releases">Update now</button>
     <form method="post" action="/admin/logout"><button>Sign out</button></form>
   </nav>
 </header>
-<p class="problem" id="problem" hidden></p>
-<p class="problem" id="no-catalog" hidden>There is no Kiwix catalog here yet, so sizes show as 0 B and the
-  Catalog tab is empty. <span id="catalog-fetching">zimon serve is fetching it (see Jobs).</span>
-  <span id="catalog-failed">zimon serve tries again later, or now:
-  <button id="refresh">Fetch the catalog</button></span></p>
-<main>
-  <section>
-    <h2>Disk</h2>
-    <div id="disk" class="disk"></div>
-  </section>
-  <section>
-    <h2>Jobs</h2>
-    <ul id="jobs" class="jobs"></ul>
-  </section>
-  <nav class="tabs" role="tablist" aria-label="What to show">
-    <button role="tab" data-tab="collections">Collections</button>
-    <button role="tab" data-tab="zims">Your ZIMs</button>
-    <button role="tab" data-tab="catalog">Catalog</button>
+<div class="layout">
+  <nav class="views" aria-label="Admin pages">
+    <a href="#overview" data-view="overview">Overview</a>
+    <a href="#collections" data-view="collections">Collections</a>
+    <a href="#zims" data-view="zims">Your ZIMs</a>
+    <a href="#catalog" data-view="catalog">Catalog</a>
+    <a href="#jobs" data-view="jobs">Jobs</a>
   </nav>
-  <section role="tabpanel" id="tab-collections">
-    <p class="blurb">Pick how deep each interest goes. Every change shows its plan first.</p>
-    <ul id="collections" class="cols"></ul>
-  </section>
-  <section role="tabpanel" id="tab-zims" hidden>
-    <table id="items" class="items"></table>
-  </section>
-  <section role="tabpanel" id="tab-catalog" hidden>
-    <input id="filter" class="filter" type="search" autocomplete="off"
-      placeholder="Filter by name, title or topic, e.g. wikipedia, cooking, python" aria-label="Filter the catalog">
-    <p id="found" class="note"></p>
-    <div class="scroll"><table id="results" class="items"></table></div>
-    <p id="more-row" hidden><button id="more">Show more</button> <span id="more-note" class="note"></span></p>
-  </section>
-</main>
+  <main>
+    <p class="problem" id="problem" hidden></p>
+
+    <section data-view="overview" hidden>
+      <div class="card">
+        <h2>Storage</h2>
+        <div id="storage"></div>
+      </div>
+      <div class="card">
+        <h2>Now</h2>
+        <div id="now"></div>
+      </div>
+      <div class="card" id="needs-card" hidden>
+        <h2>Needs you</h2>
+        <ul id="needs" class="needs"></ul>
+      </div>
+    </section>
+
+    <section data-view="collections" hidden>
+      <h2>Collections</h2>
+      <p class="blurb">Pick how deep each interest goes. Every change shows its plan first.</p>
+      <ul id="collection-list" class="cols"></ul>
+    </section>
+
+    <section data-view="zims" hidden>
+      <h2>Your ZIMs</h2>
+      <div class="filters">
+        <input id="zims-filter" class="filter" type="search" autocomplete="off"
+          placeholder="Filter by name, title or collection" aria-label="Filter your ZIMs">
+      </div>
+      <p id="zims-found" class="note"></p>
+      <div class="scroll"><table id="items" class="items"></table></div>
+    </section>
+
+    <section data-view="catalog" hidden>
+      <h2>Catalog</h2>
+      <div class="filters">
+        <input id="filter" class="filter" type="search" autocomplete="off"
+          placeholder="Filter by name, title or topic, e.g. wikipedia, cooking, python" aria-label="Filter the catalog">
+        <select id="lang" aria-label="Language"><option value="">Every language</option></select>
+        <select id="topic" aria-label="Topic"><option value="">Every topic</option></select>
+      </div>
+      <p id="found" class="note"></p>
+      <div class="scroll"><table id="results" class="items"></table></div>
+      <p id="more-row" hidden><button id="more">Show more</button> <span id="more-note" class="note"></span></p>
+    </section>
+
+    <section data-view="jobs" hidden>
+      <h2>Jobs</h2>
+      <p class="blurb">Every change runs as a job, one at a time. Open one for its log.</p>
+      <div class="wide"><table id="job-list" class="items jobs"></table></div>
+    </section>
+  </main>
+</div>
 <dialog id="plan">
   <h2 id="plan-title"></h2>
   <div id="plan-body"></div>

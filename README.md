@@ -211,23 +211,31 @@ The admin page manages the library from a browser. It has its own port, the
 next one up (http://127.0.0.1:8081/admin by default; `--admin-port` or
 `serve.admin_port` to change it), so a script inside a book can never reach it.
 If that port is taken, `zimon serve` says so and serves the books without it.
-The admin page shows disk use against your budget and the live progress of
-every change, above three tabs:
-- Collections: a Light / Standard / Deep switch per collection, with the size
-  of each;
-- Your ZIMs: flavour changes and removal;
-- Catalog: the whole Kiwix catalog, filtered as you type.
+Its header shows whether kiwix-serve is up and how far a running change has
+got. A menu on the left (a row on a phone) has five pages:
+- Overview: storage, split by collection, against the disk or your budget;
+  what runs now; and what needs you: updates to fetch, ZIMs not downloaded
+  yet, files library.toml doesn't want, a change that failed, no catalog yet.
+- Collections: Off / Light / Standard / Deep per collection, with the size of
+  each depth.
+- Your ZIMs: every ZIM with its state, filtered as you type; flavour changes
+  and removal.
+- Catalog: the whole Kiwix catalog, filtered as you type, by language and
+  topic.
+- Jobs: every change, one line each, with its log.
 
 A new library has no catalog yet; `zimon serve` fetches it when it starts
-(the page says so meanwhile) and tries again later if that fails.
+(the Overview says so meanwhile) and tries again later if that fails.
 
 Each change shows its plan first, as `zimon apply` does, and runs only if the
 plan is still the one you saw. Whatever you change is written to
 `library.toml`, the same as with the commands.
 
-![The admin page](docs/img/serve-admin.png)
+![The admin page's Overview](docs/img/serve-admin.png)
 
-![The admin page's Catalog tab, filtered on "wiki"](docs/img/serve-catalog.png)
+![Collections, each with its depth](docs/img/serve-collections.png)
+
+![The catalog, filtered on "wiki"](docs/img/serve-catalog.png)
 
 When only this computer can reach the server, `zimon serve` prints a sign-in
 link that works once (in a terminal, not into a service's log). Otherwise
