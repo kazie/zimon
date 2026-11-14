@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"slices"
 	"testing"
 	"time"
 
@@ -164,5 +165,40 @@ func TestSchedulerRetriesAfterRestart(t *testing.T) {
 	_ = m.Store.FinishJob(ctx, other.ID, store.JobDone, "")
 	if got := lastFailedRun(ctx, m.Store); got != 0 {
 		t.Errorf("lastFailedRun after a later update = %d", got)
+	}
+}
+
+// A new library has no catalog: zimon serve fetches it as a job when it
+// starts, tries again while that fails (the tests' catalog is unreachable),
+// and leaves a library with a catalog alone.
+func TestFirstCatalog(t *testing.T) {
+	ctx := context.Background()
+	for _, empty := range []bool{true, false} {
+		m := newManager(t)
+		if empty {
+			if err := m.Store.ReplaceCatalog(ctx, nil, ""); err != nil {
+				t.Fatal(err)
+			}
+		}
+		s := New(m, "")
+		s.catalogRetry = 20 * time.Millisecond
+		serve(t, s)
+		refreshes := func() []store.Job {
+			jobs, _ := m.Store.Jobs(ctx, 50)
+			return slices.DeleteFunc(jobs, func(j store.Job) bool { return j.Kind != "refresh" })
+		}
+		if empty {
+			waitFor(t, "a second try", func() bool { return len(refreshes()) >= 2 })
+			for _, j := range refreshes() {
+				if j.By != "zimon serve" || j.Summary != "first catalog" {
+					t.Errorf("job %+v, want the first catalog, by zimon serve", j)
+				}
+			}
+			continue
+		}
+		time.Sleep(100 * time.Millisecond)
+		if got := refreshes(); len(got) != 0 {
+			t.Errorf("with a catalog: %+v, want none", got)
+		}
 	}
 }

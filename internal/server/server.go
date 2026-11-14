@@ -41,6 +41,8 @@ type Server struct {
 	bin      atomic.Pointer[string]          // kiwix-serve; "" while it is missing
 	fetchErr atomic.Pointer[error]           // why Fetch gave up
 	retry    func(attempt int) time.Duration // wait before fetch number attempt+1
+	// catalogRetry is how long firstCatalog waits before it tries again.
+	catalogRetry time.Duration
 
 	start     func(ctx context.Context, addr string) (*proc, error) // runs kiwix-serve; tests replace it
 	backoff   func(attempt int) time.Duration                       // wait before restart number attempt
@@ -60,7 +62,7 @@ type proc struct {
 
 // New is a Server for m, running kiwix-serve from bin ("" if missing).
 func New(m *library.Manager, bin string) *Server {
-	s := &Server{Manager: m, backoff: download.Backoff, retry: fetchRetry}
+	s := &Server{Manager: m, backoff: download.Backoff, retry: fetchRetry, catalogRetry: 10 * time.Minute}
 	s.bin.Store(&bin)
 	s.start = s.startKiwix
 	s.jobs.wake = make(chan struct{}, 1)
@@ -180,6 +182,7 @@ func (s *Server) Run(ctx context.Context, ln, admin net.Listener) error {
 	s.jobs.stopped = ctx.Done()
 	wg.Go(func() { s.work(ctx) })
 	wg.Go(func() { s.schedule(ctx) })
+	wg.Go(func() { s.firstCatalog(ctx) })
 	var servers []*http.Server
 	serve := func(h http.Handler, l net.Listener) {
 		srv := newHTTPServer(h)

@@ -18,6 +18,10 @@
   </nav>
 </header>
 <p class="problem" id="problem" hidden></p>
+<p class="problem" id="no-catalog" hidden>There is no Kiwix catalog here yet, so sizes show as 0 B and the
+  Catalog tab is empty. <span id="catalog-fetching">zimon serve is fetching it (see Jobs).</span>
+  <span id="catalog-failed">zimon serve tries again later, or now:
+  <button id="refresh">Fetch the catalog</button></span></p>
 <main>
   <section>
     <h2>Disk</h2>
@@ -27,22 +31,24 @@
     <h2>Jobs</h2>
     <ul id="jobs" class="jobs"></ul>
   </section>
-  <section>
-    <h2>Collections</h2>
+  <nav class="tabs" role="tablist" aria-label="What to show">
+    <button role="tab" data-tab="collections">Collections</button>
+    <button role="tab" data-tab="zims">Your ZIMs</button>
+    <button role="tab" data-tab="catalog">Catalog</button>
+  </nav>
+  <section role="tabpanel" id="tab-collections">
     <p class="blurb">Pick how deep each interest goes. Every change shows its plan first.</p>
     <ul id="collections" class="cols"></ul>
   </section>
-  <section>
-    <h2>Your ZIMs</h2>
+  <section role="tabpanel" id="tab-zims" hidden>
     <table id="items" class="items"></table>
   </section>
-  <section>
-    <h2>Add from the catalog</h2>
-    <form id="search" class="search" role="search">
-      <input name="q" type="search" placeholder="Search the Kiwix catalog" aria-label="Search the catalog">
-      <button>Search</button>
-    </form>
-    <table id="results" class="items"></table>
+  <section role="tabpanel" id="tab-catalog" hidden>
+    <input id="filter" class="filter" type="search" autocomplete="off"
+      placeholder="Filter by name, title or topic, e.g. wikipedia, cooking, python" aria-label="Filter the catalog">
+    <p id="found" class="note"></p>
+    <div class="scroll"><table id="results" class="items"></table></div>
+    <p id="more-row" hidden><button id="more">Show more</button> <span id="more-note" class="note"></span></p>
   </section>
 </main>
 <dialog id="plan">

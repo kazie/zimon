@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/rand/v2"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/kazie/zimon/internal/api"
@@ -100,6 +101,46 @@ func (s *Server) schedule(ctx context.Context) {
 	}
 }
 
+// firstCatalog fetches the catalog while there is none (a new library):
+// the admin page needs it for sizes and search, and a scheduled update may
+// be days away, or off. A fetch that fails (the network not up yet at boot)
+// is tried again every s.catalogRetry; an update or refresh already queued
+// or running counts as the fetch.
+func (s *Server) firstCatalog(ctx context.Context) {
+	for {
+		_, _, count, err := s.Manager.Store.CatalogState(ctx)
+		switch {
+		case err != nil:
+			s.logf("Reading the catalog: %v", err)
+		case count > 0:
+			return
+		case s.activeJob(ctx, "refresh", "update") == 0: // both fetch the catalog
+			if _, err := s.enqueue(ctx, "refresh", "first catalog", "zimon serve", s.taskJob("refresh", api.Request{}, false)); err != nil {
+				s.logf("Fetching the catalog: %v", err)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(s.catalogRetry):
+		}
+	}
+}
+
+// activeJob is the id of a queued or running job of one of kinds, or 0.
+func (s *Server) activeJob(ctx context.Context, kinds ...string) int64 {
+	jobs, err := s.Manager.Store.Jobs(ctx, 20)
+	if err != nil {
+		return 0
+	}
+	for _, j := range jobs {
+		if slices.Contains(kinds, j.Kind) && (j.State == store.JobQueued || j.State == store.JobRunning) {
+			return j.ID
+		}
+	}
+	return 0
+}
+
 // tick does what is due at now: the scheduled run, or a retry.
 func (sc *scheduler) tick(ctx context.Context, now time.Time) {
 	s := sc.s
@@ -136,14 +177,8 @@ func (sc *scheduler) tick(ctx context.Context, now time.Time) {
 // counts as the scheduled run.
 func (sc *scheduler) run(ctx context.Context) {
 	s := sc.s
-	sc.pending = 0
-	if jobs, err := s.Manager.Store.Jobs(ctx, 20); err == nil {
-		for _, j := range jobs {
-			if j.Kind == "update" && (j.State == store.JobQueued || j.State == store.JobRunning) {
-				sc.pending = j.ID
-				return
-			}
-		}
+	if sc.pending = s.activeJob(ctx, "update"); sc.pending != 0 {
+		return
 	}
 	rec, err := s.enqueue(ctx, "update", "scheduled update", "schedule", s.taskJob("update", api.Request{}, true))
 	if err != nil {

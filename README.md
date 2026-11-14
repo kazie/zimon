@@ -211,12 +211,15 @@ The admin page manages the library from a browser. It has its own port, the
 next one up (http://127.0.0.1:8081/admin by default; `--admin-port` or
 `serve.admin_port` to change it), so a script inside a book can never reach it.
 If that port is taken, `zimon serve` says so and serves the books without it.
-The admin page shows:
-- disk use against your budget;
-- a Light / Standard / Deep switch per collection, with the size of each;
-- your ZIMs, with flavour changes and removal;
-- catalog search;
-- live progress of every change.
+The admin page shows disk use against your budget and the live progress of
+every change, above three tabs:
+- Collections: a Light / Standard / Deep switch per collection, with the size
+  of each;
+- Your ZIMs: flavour changes and removal;
+- Catalog: the whole Kiwix catalog, filtered as you type.
+
+A new library has no catalog yet; `zimon serve` fetches it when it starts
+(the page says so meanwhile) and tries again later if that fails.
 
 Each change shows its plan first, as `zimon apply` does, and runs only if the
 plan is still the one you saw. Whatever you change is written to

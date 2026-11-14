@@ -23,7 +23,8 @@ function size(n) {
   return (i === 0 || n >= 100 ? n.toFixed(0) : n >= 10 ? n.toFixed(1) : n.toFixed(2)) + " " + units[i];
 }
 
-async function api(path, body) {
+// call asks zimon's API and answers [data, response]; api answers the data.
+async function call(path, body) {
   const opts = { headers: { "X-Requested-With": "zimon" } };
   if (body !== undefined) {
     opts.method = "POST";
@@ -34,7 +35,11 @@ async function api(path, body) {
   if (resp.status === 401) { location.reload(); throw new Error("signed out"); }
   const data = await resp.json();
   if (!resp.ok) throw new Error(data.error || resp.statusText);
-  return data;
+  return [data, resp];
+}
+
+async function api(path, body) {
+  return (await call(path, body))[0];
 }
 
 function problem(msg) {
@@ -115,6 +120,22 @@ async function loadDisk() {
   $("#disk").replaceChildren(...children);
 }
 
+// ---- the catalog's state: without one, sizes are 0 B (a new library)
+
+async function loadCatalogState() {
+  const info = await api("info");
+  $("#no-catalog").hidden = info.catalog_entries > 0;
+}
+
+// showFetching says whether a job that fetches the catalog is under way.
+function showFetching(jobs) {
+  const fetching = jobs.some((j) => (j.kind === "refresh" || j.kind === "update") && active(j));
+  $("#catalog-fetching").hidden = !fetching;
+  $("#catalog-failed").hidden = fetching;
+}
+
+$("#refresh").addEventListener("click", () => api("refresh", {}).then(loadJobs, (e) => problem(e.message)));
+
 // ---- collections
 
 const levels = ["light", "standard", "deep"];
@@ -178,43 +199,95 @@ async function loadItems() {
     el("td", { class: "act" }, el("button", { onclick: () => change("remove", { targets: [exact(it)] }, "Remove " + it.key) }, "Remove")))));
 }
 
-// ---- the catalog
+// ---- the catalog: a filter over all of it, as you type. Empty, it lists
+// everything (by name), a page at a time.
 
-$("#search").addEventListener("submit", async (ev) => {
-  ev.preventDefault();
-  const q = new FormData(ev.target).get("q");
-  try {
-    const found = await api("search?q=" + encodeURIComponent(q) + "&limit=50");
-    $("#results").replaceChildren(...found.map((e) => el("tr", {},
-      el("td", {}, el("b", {}, e.key), el("div", { class: "note" }, e.title + (e.summary ? " — " + e.summary : ""))),
-      el("td", {}, e.language),
-      el("td", { class: "num" }, size(e.size)),
-      el("td", {}, states[e.state] || ""),
-      el("td", { class: "act" }, e.state === "not_in_library"
-        ? el("button", { onclick: () => change("add", { keys: [exact(e)] }, "Add " + e.key) }, "Add") : null))));
-    if (!found.length) $("#results").replaceChildren(el("tr", {}, el("td", { class: "note" }, "Nothing found.")));
-  } catch (e) {
-    problem(e.message);
-  }
+const page = 200;    // rows per page
+const maxRows = 1000; // the most the API answers at once
+let shown = page;
+// The catalog loads when its tab is open, else when it is next opened. At
+// first loadAll loads it (and marks it stale when another tab is open).
+let catalogStale = false;
+let asked = 0;            // the newest filter: an older answer that comes late is dropped
+
+async function loadCatalog() {
+  catalogStale = false;
+  const q = $("#filter").value.trim();
+  const mine = ++asked;
+  const [found, resp] = await call(`search?q=${encodeURIComponent(q)}&limit=${shown}`);
+  if (mine !== asked) return;
+  const total = Number(resp.headers.get("X-Total-Count")) || found.length;
+  const head = el("tr", {}, el("th", {}, "ZIM"), el("th", {}, "Language"), el("th", {}, "Topic"),
+    el("th", { class: "num" }, "Size"), el("th", {}, "State"), el("th", {}));
+  $("#results").replaceChildren(head, ...found.map((e) => el("tr", {},
+    el("td", {}, el("b", {}, e.key), el("div", { class: "note" }, e.title + (e.summary ? " — " + e.summary : ""))),
+    el("td", {}, e.language),
+    el("td", { class: "note" }, e.category || ""),
+    el("td", { class: "num" }, size(e.size)),
+    el("td", {}, states[e.state] || ""),
+    el("td", { class: "act" }, e.state === "not_in_library"
+      ? el("button", { onclick: () => change("add", { keys: [exact(e)] }, "Add " + e.key) }, "Add") : null))));
+  $("#found").textContent = !total ? (q ? `Nothing matches “${q}”.` : "The catalog is empty.")
+    : `${found.length.toLocaleString()} of ${total.toLocaleString()} ZIMs${q ? ` matching “${q}”` : ""}`;
+  const more = found.length < total;
+  $("#more-row").hidden = !more;
+  $("#more").hidden = shown >= maxRows;
+  $("#more-note").textContent = shown >= maxRows ? `The first ${maxRows.toLocaleString()}: type to narrow it down.` : "";
+}
+
+let typing;
+$("#filter").addEventListener("input", () => {
+  clearTimeout(typing);
+  typing = setTimeout(() => { shown = page; loadCatalog().catch((e) => problem(e.message)); }, 200);
 });
+$("#more").addEventListener("click", () => {
+  shown = Math.min(shown + page, maxRows);
+  loadCatalog().catch((e) => problem(e.message));
+});
+
+// ---- tabs: the open one is in the address (#catalog), so a reload keeps it
+
+const tabs = ["collections", "zims", "catalog"];
+
+function showTab(name) {
+  if (!tabs.includes(name)) name = tabs[0];
+  for (const t of tabs) {
+    $("#tab-" + t).hidden = t !== name;
+    const b = document.querySelector(`[data-tab="${t}"]`);
+    b.classList.toggle("on", t === name);
+    b.setAttribute("aria-selected", t === name);
+  }
+  if (name === "catalog" && catalogStale) loadCatalog().catch((e) => problem(e.message));
+}
+
+for (const b of document.querySelectorAll("[data-tab]")) {
+  b.addEventListener("click", () => {
+    history.replaceState(null, "", "#" + b.dataset.tab);
+    showTab(b.dataset.tab);
+  });
+}
+window.addEventListener("hashchange", () => showTab(location.hash.slice(1)));
 
 // ---- jobs, live
 
 const progress = {}; // job id → key → [done, total]
 
+const active = (j) => j.state === "queued" || j.state === "running";
+
 async function loadJobs() {
   const jobs = await api("jobs?limit=15");
+  showFetching(jobs);
   if (!jobs.length) {
     $("#jobs").replaceChildren(el("li", { class: "note" }, "No jobs yet: changes you make here run as jobs, one at a time."));
     return;
   }
   $("#jobs").replaceChildren(...jobs.map((j) => {
     const bars = el("div", { id: "progress-" + j.id }, progressBars(j.id));
-    const active = j.state === "queued" || j.state === "running";
+    const running = active(j);
     return el("li", {},
       el("span", { class: "state " + j.state }, j.state),
       " ", j.summary, el("span", { class: "note" }, ` · ${new Date(j.created).toLocaleString()}${j.by ? " · " + j.by : ""}`),
-      active ? el("button", { onclick: () => api(`jobs/${j.id}/cancel`, {}).then(loadJobs, (e) => problem(e.message)) }, "Stop") : null,
+      running ? el("button", { onclick: () => api(`jobs/${j.id}/cancel`, {}).then(loadJobs, (e) => problem(e.message)) }, "Stop") : null,
       j.error ? el("div", { class: "problem" }, j.error) : null,
       bars,
       logView(j.id, j.log || []));
@@ -277,11 +350,14 @@ $("#update").addEventListener("click", () => api("update", {}).then(loadJobs, (e
 
 async function loadAll() {
   try {
-    await Promise.all([loadDisk(), loadJobs(), loadCollections(), loadItems()]);
+    catalogStale = true;
+    await Promise.all([loadCatalogState(), loadDisk(), loadJobs(), loadCollections(), loadItems(),
+      $("#tab-catalog").hidden ? null : loadCatalog()]);
   } catch (e) {
     problem(e.message);
   }
 }
 
+showTab(location.hash.slice(1));
 loadAll();
 follow();

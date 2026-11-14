@@ -62,14 +62,15 @@ stdout '^stack_exchange$'
 exec zimon __complete level devdocs_en_bash ''
 stdout '^default\t2\.00 MB$'
 
-# jobs lists what the server did through its API.
+# jobs lists what the server did through its API. The first job is its own:
+# a new library has no catalog, so zimon serve fetched one as it started.
 exec zimon jobs
-stderr '^No jobs yet\.$'
+stdout '^1 +\w+ +first catalog +zimon serve '
 server refresh
 exec zimon jobs
-stdout '^1 +done +refresh +script +\d{4}-'
-exec zimon jobs 1
-stdout '^Job 1  refresh  done$'
+stdout '^2 +done +refresh +script +\d{4}-'
+exec zimon jobs 2
+stdout '^Job 2  refresh  done$'
 stdout '^  Catalog (unchanged|refreshed)'
 ! exec zimon jobs 99
 stderr '^✗ no job 99 on srv \(see: zimon jobs\)$'
@@ -143,18 +144,18 @@ stdout '^\d+ +done +update +script '
 stdout '^\d+ +done +hold devdocs_en_bash +script '
 stdout '^\d+ +done +add devdocs_en_go +script '
 
-exec zimon jobs 1 --follow
-stderr '^✓ Job 1 done: refresh$'
-! exec zimon jobs 1 --cancel
+exec zimon jobs 2 --follow
+stderr '^✓ Job 2 done: refresh$'
+! exec zimon jobs 2 --cancel
 stderr '^✗ the job is not queued or running$'
 ! exec zimon jobs --follow
 stderr 'give the job''s id'
 
 # jobs on the server itself.
 env ZIMON_REMOTE=
-exec zimon --config $SERVER_CONFIG jobs 1
-stdout '^Job 1  refresh  done$'
-! exec zimon --config $SERVER_CONFIG jobs 1 --cancel
+exec zimon --config $SERVER_CONFIG jobs 2
+stdout '^Job 2  refresh  done$'
+! exec zimon --config $SERVER_CONFIG jobs 2 --cancel
 stderr 'follow or cancel one with --remote'
 
 # Commands that only make sense here stay here.
