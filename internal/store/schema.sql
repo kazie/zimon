@@ -1,6 +1,6 @@
--- zimon's database. Nothing is released, so it is edited in place; a
--- database made with another schema is refused (see store.go). sqlc reads
--- it too (sqlc.yaml).
+-- zimon's database; sqlc reads it too. Another schema's database is refused (no migrations yet, see
+-- store.go), so since v0.1.0 an edit here breaks every library: new state goes into kv. Mind the line
+-- count too: schemaVersion counts lines, comments included (TestSchemaIsReleased).
 
 CREATE TABLE kv (
 	key   TEXT PRIMARY KEY,

@@ -189,11 +189,11 @@ func TestAdminSignInLimits(t *testing.T) {
 	}
 
 	// Old failures are forgotten.
-	s.sessions.mu.Lock()
-	s.sessions.fails["192.0.2.9"] = []time.Time{time.Now().Add(-2 * failWindow)}
+	s.signIn.mu.Lock()
+	s.signIn.fails["192.0.2.9"] = []time.Time{time.Now().Add(-2 * failWindow)}
 	s.sweepLocked()
-	_, kept := s.sessions.fails["192.0.2.9"]
-	s.sessions.mu.Unlock()
+	_, kept := s.signIn.fails["192.0.2.9"]
+	s.signIn.mu.Unlock()
 	if kept {
 		t.Error("an old failure was kept")
 	}
@@ -206,6 +206,10 @@ func TestAdminLoginLink(t *testing.T) {
 	w := get(t, h, http.MethodGet, link)
 	if w.Code != http.StatusSeeOther || len(w.Result().Cookies()) == 0 {
 		t.Fatalf("link: %d", w.Code)
+	}
+	// No token to remove can end it, so it lasts a day, not thirty.
+	if c := w.Result().Cookies()[0]; c.MaxAge != int(localTTL.Seconds()) {
+		t.Errorf("the link's session lasts %ds, want %ds", c.MaxAge, int(localTTL.Seconds()))
 	}
 	if r := withCookie(h, http.MethodGet, "/api/v1/jobs", w); r.Code != http.StatusOK {
 		t.Errorf("session from the link: %d", r.Code)
@@ -244,5 +248,90 @@ func TestAdminElsewhere(t *testing.T) {
 				t.Errorf("%d %s", w.Code, body)
 			}
 		})
+	}
+}
+
+// A session is in the database: a new server on the same library (after a
+// restart or an update) still knows it.
+func TestAdminSessionOutlivesTheServer(t *testing.T) {
+	s, h, token := newAdmin(t)
+	w := login(h, token, "192.0.2.1:1234")
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("sign in: %d", w.Code)
+	}
+	again := New(s.Manager, "").AdminHandler()
+	if r := withCookie(again, http.MethodGet, "/api/v1/items", w); r.Code != http.StatusOK {
+		t.Errorf("after a restart: %d", r.Code)
+	}
+	withCookie(again, http.MethodPost, "/admin/logout", w)
+	if r := withCookie(h, http.MethodGet, "/api/v1/items", w); r.Code != http.StatusUnauthorized {
+		t.Errorf("signed out on one server, still in on the other: %d", r.Code)
+	}
+}
+
+// A reverse proxy that checks who is asking can sign them in with a token
+// in X-Zimon-Admin-Token, on the admin port only. Changes still have to
+// come from the admin page.
+func TestAdminProxyToken(t *testing.T) {
+	s, h, token := newAdmin(t)
+	viaProxy := func(h http.Handler, method, path, proxyToken string, header ...string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(method, path, nil)
+		r.RemoteAddr = "127.0.0.1:4321"
+		r.Header.Set("X-Forwarded-For", "198.51.100.7")
+		r.Header.Set(adminTokenHeader, proxyToken)
+		for i := 0; i+1 < len(header); i += 2 {
+			r.Header.Set(header[i], header[i+1])
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	tests := []struct {
+		name, method, path, token string
+		header                    []string
+		want                      int
+		body                      string
+	}{
+		{name: "the page, signed in", method: "GET", path: "/admin", token: token, want: 200, body: "admin.js"},
+		{name: "a read from the page", method: "GET", path: "/api/v1/items", token: token,
+			header: []string{"Sec-Fetch-Site", "same-origin"}, want: 200},
+		{name: "a read that doesn't say where from", method: "GET", path: "/api/v1/items", token: token, want: 403},
+		{name: "a read with the proxy's own Authorization", method: "GET", path: "/api/v1/items", token: token,
+			header: []string{"Sec-Fetch-Site", "same-origin", "Authorization", "Bearer sso.jwt.from-the-proxy"}, want: 200},
+		{name: "a change from the page", method: "POST", path: "/api/v1/apply", token: token,
+			header: []string{"X-Requested-With", "zimon", "Sec-Fetch-Site", "same-origin"}, want: 202, body: `"by":"test"`},
+		{name: "a change without X-Requested-With", method: "POST", path: "/api/v1/apply", token: token, want: 403},
+		{name: "a change from another site", method: "POST", path: "/api/v1/apply", token: token,
+			header: []string{"X-Requested-With", "zimon", "Sec-Fetch-Site", "cross-site"}, want: 403},
+		{name: "a wrong token", method: "GET", path: "/admin", token: "zimon_wrong", want: 200, body: `name="token"`},
+		{name: "signing out", method: "POST", path: "/admin/logout", token: token, want: 409, body: "sign out there"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := viaProxy(h, tt.method, tt.path, tt.token, tt.header...)
+			if w.Code != tt.want || !strings.Contains(w.Body.String(), tt.body) {
+				t.Errorf("got %d %.80q, want %d with %q", w.Code, w.Body.String(), tt.want, tt.body)
+			}
+		})
+	}
+	// The main port serves books, and ignores the header.
+	if w := viaProxy(s.Handler(), "GET", "/api/v1/items", token); w.Code != http.StatusUnauthorized {
+		t.Errorf("the header on the main port: %d", w.Code)
+	}
+
+	// A proxy token that stopped working is the proxy's mistake: it counts
+	// against nobody, and a sign-in on the page still works beside it.
+	for range maxFails + 2 {
+		viaProxy(h, "GET", "/admin", "zimon_removed")
+	}
+	s.signIn.mu.Lock()
+	fails := len(s.signIn.fails)
+	s.signIn.mu.Unlock()
+	if fails != 0 {
+		t.Errorf("a broken proxy token counted as %d wrong tries", fails)
+	}
+	signedIn := login(h, token, "127.0.0.1:4321")
+	if w := withCookie(h, http.MethodGet, "/admin", signedIn, adminTokenHeader, "zimon_removed"); !strings.Contains(w.Body.String(), "admin.js") {
+		t.Errorf("sign in beside a broken proxy token: %d %.80q", w.Code, w.Body.String())
 	}
 }

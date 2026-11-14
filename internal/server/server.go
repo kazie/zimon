@@ -48,7 +48,7 @@ type Server struct {
 	proxy     *httputil.ReverseProxy
 	icons     icons
 	jobs      jobs
-	sessions  sessions
+	signIn    signIn
 }
 
 // proc is a running kiwix-serve.
@@ -64,9 +64,8 @@ func New(m *library.Manager, bin string) *Server {
 	s.start = s.startKiwix
 	s.jobs.wake = make(chan struct{}, 1)
 	s.jobs.subs = map[chan api.Event]struct{}{}
-	s.sessions.m = map[string]session{}
-	s.sessions.codes = map[string]time.Time{}
-	s.sessions.fails = map[string][]time.Time{}
+	s.signIn.codes = map[string]time.Time{}
+	s.signIn.fails = map[string][]time.Time{}
 	upstream := http.DefaultTransport.(*http.Transport).Clone()
 	upstream.MaxIdleConnsPerHost = 32 // a browser loads a page's parts side by side; 2 makes most of them reconnect
 	s.proxy = &httputil.ReverseProxy{

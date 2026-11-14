@@ -13,7 +13,13 @@ import (
 
 func open(t testing.TB) *Store {
 	t.Helper()
-	s, err := Open(filepath.Join(t.TempDir(), "zimon.db"))
+	return openAt(t, filepath.Join(t.TempDir(), "zimon.db"))
+}
+
+// openAt opens the database at path, for a test that opens it again.
+func openAt(t testing.TB, path string) *Store {
+	t.Helper()
+	s, err := Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,5 +256,15 @@ func TestConcurrentFirstOpen(t *testing.T) {
 		if err := <-errs; err != nil {
 			t.Errorf("concurrent open: %v", err)
 		}
+	}
+}
+
+// Released databases carry schemaVersion; without migrations, another one
+// would make zimon refuse every existing library. Change the schema only
+// together with a migration from these.
+func TestSchemaIsReleased(t *testing.T) {
+	const v010 = 1269520913 // v0.1.0
+	if schemaVersion != v010 {
+		t.Fatalf("schemaVersion is %d, v0.1.0's is %d: the schema (or its line count) changed", schemaVersion, v010)
 	}
 }

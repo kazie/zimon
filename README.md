@@ -224,10 +224,19 @@ plan is still the one you saw. Whatever you change is written to
 
 When only this computer can reach the server, `zimon serve` prints a sign-in
 link that works once (in a terminal, not into a service's log). Otherwise
-sign in with a token from `zimon token add`. The session cookie is HttpOnly
-and SameSite=Strict, and Secure behind an HTTPS proxy. Removing the token with
+sign in with a token from `zimon token add`. A sign-in lasts 30 days (a
+one-time link's, a day), also across restarts and updates. The session cookie is HttpOnly and
+SameSite=Strict, and Secure behind an HTTPS proxy. Removing the token with
 `zimon token remove` ends its sessions. Wrong tokens, on the page or the API,
 are limited to 5 per address every 10 minutes.
+
+When a reverse proxy already checks who is asking (nginx with basic auth, or
+single sign-on), it can sign them in itself: it sends a token in the
+`X-Zimon-Admin-Token` header with every request to the admin page's host,
+and the page asks for none. Make a token for it (`zimon token add proxy`);
+removing that token ends this too. Only the admin port reads the header,
+changes must still come from the admin page, and signing out happens at the
+proxy.
 
 #### The API and tokens
 
@@ -455,6 +464,19 @@ ready to use. zimon tells a request that came through the proxy (by its
 `X-Forwarded-*` headers) apart from a direct one: `/admin` on the books' host
 then says the admin page has a host name of its own, instead of linking to
 the admin port.
+
+When the proxy asks for a password before the admin page, it can also save
+you zimon's sign-in by passing a token
+([the admin page](#the-admin-page)). In nginx it is one more
+`proxy_set_header` beside the others for the admin host (see the comments in
+`contrib/nginx/zimon.conf`):
+
+```nginx
+include /etc/nginx/zimon-admin-token.conf;   # proxy_set_header X-Zimon-Admin-Token "zimon_…";
+```
+
+Keep it in a file of its own that only root and nginx may read, since anyone
+with the token can change the library, and never pass it on the books' host.
 
 ### From your laptop: `--remote`
 

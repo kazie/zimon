@@ -20,14 +20,22 @@ import (
 // port ignores the session and takes API tokens only.
 //
 // The admin page signs in with a token and keeps a session cookie. Sessions
-// live in memory: a restart signs everyone out.
+// are kept in the database, so a restart or an update signs nobody out. A
+// reverse proxy that signs people in itself can pass a token in
+// adminTokenHeader instead, and the page asks for none.
 const (
 	sessionCookie = "zimon_session"
 	sessionTTL    = 30 * 24 * time.Hour
+	localTTL      = 24 * time.Hour // a one-time link's session: no token to remove ends it
 	codeTTL       = 10 * time.Minute
 	maxFails      = 5 // wrong tokens per address…
 	failWindow    = 10 * time.Minute
 	maxTracked    = 10000 // addresses with wrong tokens kept in memory
+
+	// adminTokenHeader is where a reverse proxy puts a zimon token for every
+	// request to the admin page, when it has checked who is asking (nginx
+	// with basic auth, say). Only the admin port reads it.
+	adminTokenHeader = "X-Zimon-Admin-Token"
 )
 
 var (
@@ -43,17 +51,13 @@ reach it: through this reverse proxy, a host name of its own.
 `))
 )
 
-type sessions struct {
-	mu    sync.Mutex
-	m     map[string]session     // by cookie value
-	codes map[string]time.Time   // one-time sign-in codes, until when they work
-	fails map[string][]time.Time // wrong tokens, by address
-}
-
-type session struct {
-	name    string // the token's name, or "local" for a one-time link
-	hash    string // the token's hash: removing the token ends the session
-	expires time.Time
+// signIn is what signing in keeps in memory; sessions themselves are in the
+// database.
+type signIn struct {
+	mu       sync.Mutex
+	codes    map[string]time.Time   // one-time sign-in codes, until when they work
+	fails    map[string][]time.Time // wrong tokens, by address
+	proxyLog time.Time              // when a failing adminTokenHeader was last logged
 }
 
 // adminRoutes adds the admin page, for the admin port's mux.
@@ -104,56 +108,82 @@ func proxied(r *http.Request) bool {
 // `zimon serve` to print when only this computer can reach it.
 func (s *Server) LoginLink() string {
 	code := randomID()
-	s.sessions.mu.Lock()
+	s.signIn.mu.Lock()
 	s.sweepLocked()
-	s.sessions.codes[code] = time.Now().Add(codeTTL)
-	s.sessions.mu.Unlock()
+	s.signIn.codes[code] = time.Now().Add(codeTTL)
+	s.signIn.mu.Unlock()
 	return "/admin/login?code=" + code
 }
 
-// session is the signed-in session a request carries, if any.
-func (s *Server) session(r *http.Request) (session, bool) {
-	c, err := r.Cookie(sessionCookie)
-	if err != nil {
-		return session{}, false
+// signedIn reports whether a request on the admin port is signed in: by
+// the proxy's adminTokenHeader, or else by its session cookie.
+func (s *Server) signedIn(r *http.Request) bool {
+	if _, ok := s.proxySession(r); ok {
+		return true
 	}
-	s.sessions.mu.Lock()
-	ss, ok := s.sessions.m[c.Value]
-	if ok && time.Now().After(ss.expires) {
-		delete(s.sessions.m, c.Value)
-		ok = false
-	}
-	s.sessions.mu.Unlock()
-	if ok && ss.hash != "" {
-		// The token may have been removed since (zimon token remove).
-		tok, err := s.Manager.Store.TokenByHash(r.Context(), ss.hash)
-		if err != nil || tok == nil {
-			return session{}, false
-		}
-	}
-	return ss, ok
+	_, ok := s.cookieSession(r)
+	return ok
 }
 
-// sweepLocked forgets expired sessions and codes, and old wrong tokens.
+// proxySession signs in with the token in adminTokenHeader. A wrong one is
+// the proxy's mistake, not a guess (a token is 32 random bytes), so it
+// doesn't count against the reader's address; it is logged now and then.
+func (s *Server) proxySession(r *http.Request) (store.Session, bool) {
+	token := strings.TrimSpace(r.Header.Get(adminTokenHeader))
+	if token == "" {
+		return store.Session{}, false
+	}
+	hash := hashToken(token)
+	tok, err := s.Manager.Store.UseToken(r.Context(), hash)
+	if err == nil && tok != nil {
+		return store.Session{Name: tok.Name, TokenHash: hash}, true
+	}
+	s.signIn.mu.Lock()
+	quiet := time.Since(s.signIn.proxyLog) < time.Minute
+	if !quiet {
+		s.signIn.proxyLog = time.Now()
+	}
+	s.signIn.mu.Unlock()
+	if !quiet {
+		if err == nil {
+			err = errors.New("no such token: zimon token add makes one")
+		}
+		s.logf("The proxy's %s doesn't sign in (%v); the page asks for a token", adminTokenHeader, err)
+	}
+	return store.Session{}, false
+}
+
+// cookieSession is the session the request's cookie names.
+func (s *Server) cookieSession(r *http.Request) (store.Session, bool) {
+	c, err := r.Cookie(sessionCookie)
+	if err != nil {
+		return store.Session{}, false
+	}
+	ss, err := s.Manager.Store.Session(r.Context(), hashToken(c.Value))
+	if err != nil {
+		s.logf("Reading a session: %v", err)
+	}
+	if ss == nil {
+		return store.Session{}, false
+	}
+	return *ss, true
+}
+
+// sweepLocked forgets expired codes and old wrong tokens.
 func (s *Server) sweepLocked() {
 	now := time.Now()
-	for id, ss := range s.sessions.m {
-		if now.After(ss.expires) {
-			delete(s.sessions.m, id)
-		}
-	}
-	for code, until := range s.sessions.codes {
+	for code, until := range s.signIn.codes {
 		if now.After(until) {
-			delete(s.sessions.codes, code)
+			delete(s.signIn.codes, code)
 		}
 	}
-	for addr := range s.sessions.fails {
+	for addr := range s.signIn.fails {
 		s.recentFailsLocked(addr)
 	}
 }
 
 func (s *Server) adminPage(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.session(r); !ok {
+	if !s.signedIn(r) {
 		s.loginPage(w, http.StatusOK, "")
 		return
 	}
@@ -188,32 +218,33 @@ func (s *Server) adminLogin(w http.ResponseWriter, r *http.Request) {
 		s.loginPage(w, http.StatusUnauthorized, "That token does not work. Make one with: zimon token add NAME")
 		return
 	}
-	s.startSession(w, r, session{name: tok.Name, hash: hash})
+	s.startSession(w, r, store.Session{Name: tok.Name, TokenHash: hash}, sessionTTL)
 }
 
 // GET /admin/login?code=…: a one-time link from `zimon serve`.
 func (s *Server) adminCodeLogin(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
-	s.sessions.mu.Lock()
-	until, ok := s.sessions.codes[code]
-	delete(s.sessions.codes, code) // once only, used or not
-	s.sessions.mu.Unlock()
+	s.signIn.mu.Lock()
+	until, ok := s.signIn.codes[code]
+	delete(s.signIn.codes, code) // once only, used or not
+	s.signIn.mu.Unlock()
 	if !ok || time.Now().After(until) {
 		s.loginPage(w, http.StatusUnauthorized, "That sign-in link has been used or is too old. Sign in with a token instead.")
 		return
 	}
-	s.startSession(w, r, session{name: "local"})
+	s.startSession(w, r, store.Session{Name: "local"}, localTTL)
 }
 
-func (s *Server) startSession(w http.ResponseWriter, r *http.Request, ss session) {
+// startSession signs the browser in for ttl.
+func (s *Server) startSession(w http.ResponseWriter, r *http.Request, ss store.Session, ttl time.Duration) {
 	id := randomID()
-	ss.expires = time.Now().Add(sessionTTL)
-	s.sessions.mu.Lock()
-	s.sweepLocked()
-	s.sessions.m[id] = ss
-	s.sessions.mu.Unlock()
+	ss.Expires = time.Now().Add(ttl).Unix()
+	if err := s.Manager.Store.PutSession(r.Context(), hashToken(id), ss); err != nil {
+		s.loginPage(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	http.SetCookie(w, &http.Cookie{
-		Name: sessionCookie, Value: id, Path: "/", MaxAge: int(sessionTTL.Seconds()),
+		Name: sessionCookie, Value: id, Path: "/", MaxAge: int(ttl.Seconds()),
 		HttpOnly: true, SameSite: http.SameSiteStrictMode,
 		Secure: r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https", // behind an HTTPS proxy
 	})
@@ -226,10 +257,15 @@ func (s *Server) adminLogout(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "sign out from the admin page", http.StatusForbidden)
 		return
 	}
+	if _, ok := s.proxySession(r); ok {
+		http.Error(w, "The proxy in front of zimon signs you in, so sign out there "+
+			"(with a password from the browser, by closing the browser).", http.StatusConflict)
+		return
+	}
 	if c, err := r.Cookie(sessionCookie); err == nil {
-		s.sessions.mu.Lock()
-		delete(s.sessions.m, c.Value)
-		s.sessions.mu.Unlock()
+		if err := s.Manager.Store.DeleteSession(r.Context(), hashToken(c.Value)); err != nil {
+			s.logf("Signing out: %v", err)
+		}
 	}
 	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode})
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
@@ -291,33 +327,33 @@ func (s *Server) checkToken(r *http.Request, hash string) (*store.Token, error) 
 }
 
 func (s *Server) tooManyFails(addr string) bool {
-	s.sessions.mu.Lock()
-	defer s.sessions.mu.Unlock()
+	s.signIn.mu.Lock()
+	defer s.signIn.mu.Unlock()
 	return s.recentFailsLocked(addr) >= maxFails
 }
 
 // recentFailsLocked counts addr's wrong tokens within failWindow, and
 // forgets older ones.
 func (s *Server) recentFailsLocked(addr string) int {
-	recent := s.sessions.fails[addr][:0]
-	for _, t := range s.sessions.fails[addr] {
+	recent := s.signIn.fails[addr][:0]
+	for _, t := range s.signIn.fails[addr] {
 		if time.Since(t) < failWindow {
 			recent = append(recent, t)
 		}
 	}
 	if len(recent) == 0 {
-		delete(s.sessions.fails, addr)
+		delete(s.signIn.fails, addr)
 	} else {
-		s.sessions.fails[addr] = recent
+		s.signIn.fails[addr] = recent
 	}
 	return len(recent)
 }
 
 func (s *Server) failed(addr string) {
-	s.sessions.mu.Lock()
+	s.signIn.mu.Lock()
 	s.sweepLocked()
-	if _, ok := s.sessions.fails[addr]; ok || len(s.sessions.fails) < maxTracked {
-		s.sessions.fails[addr] = append(s.sessions.fails[addr], time.Now())
+	if _, ok := s.signIn.fails[addr]; ok || len(s.signIn.fails) < maxTracked {
+		s.signIn.fails[addr] = append(s.signIn.fails[addr], time.Now())
 	}
-	s.sessions.mu.Unlock()
+	s.signIn.mu.Unlock()
 }

@@ -74,11 +74,13 @@ func (s *Server) tokenAuth(h http.HandlerFunc) http.Handler {
 func (s *Server) adminAuth(h http.HandlerFunc) http.Handler {
 	withToken := s.tokenAuth(h)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if bearer(r) != "" {
-			withToken.ServeHTTP(w, r)
-			return
+		// The proxy's header and the cookie come first: a proxy may send an
+		// Authorization of its own (single sign-on), which is no zimon token.
+		ss, viaProxy := s.proxySession(r)
+		ok := viaProxy
+		if !ok {
+			ss, ok = s.cookieSession(r)
 		}
-		ss, ok := s.session(r)
 		if !ok {
 			withToken.ServeHTTP(w, r)
 			return
@@ -89,11 +91,15 @@ func (s *Server) adminAuth(h http.HandlerFunc) http.Handler {
 		}
 		// A read too: a page on another port (a book's) makes the browser
 		// send the cookie, and some reads look at the network ([sources]).
-		if site := r.Header.Get("Sec-Fetch-Site"); site == "same-site" || site == "cross-site" {
+		// The proxy signs in every request, cross-site ones too, where the
+		// SameSite cookie would stay home, so it needs the browser to say
+		// where a request comes from.
+		site := r.Header.Get("Sec-Fetch-Site")
+		if site == "same-site" || site == "cross-site" || viaProxy && site == "" {
 			writeError(w, http.StatusForbidden, "the admin page's API answers the admin page")
 			return
 		}
-		h(w, r.WithContext(context.WithValue(r.Context(), tokenKey{}, ss.name)))
+		h(w, r.WithContext(context.WithValue(r.Context(), tokenKey{}, ss.Name)))
 	})
 }
 

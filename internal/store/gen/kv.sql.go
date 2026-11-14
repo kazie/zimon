@@ -9,6 +9,29 @@ import (
 	"context"
 )
 
+const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
+DELETE FROM kv WHERE key GLOB ?1 AND json_valid(value) AND json_extract(value, '$.expires') < CAST(?2 AS INTEGER)
+`
+
+type DeleteExpiredSessionsParams struct {
+	Pattern string
+	Now     int64
+}
+
+func (q *Queries) DeleteExpiredSessions(ctx context.Context, arg DeleteExpiredSessionsParams) error {
+	_, err := q.exec(ctx, q.deleteExpiredSessionsStmt, deleteExpiredSessions, arg.Pattern, arg.Now)
+	return err
+}
+
+const deleteKV = `-- name: DeleteKV :exec
+DELETE FROM kv WHERE key = ?1
+`
+
+func (q *Queries) DeleteKV(ctx context.Context, key string) error {
+	_, err := q.exec(ctx, q.deleteKVStmt, deleteKV, key)
+	return err
+}
+
 const getKV = `-- name: GetKV :many
 SELECT value FROM kv WHERE key = ?1
 `

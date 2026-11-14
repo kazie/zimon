@@ -100,9 +100,11 @@ func (s *Store) Close() error { return errors.Join(s.q.Close(), s.db.Close()) }
 var schema string
 
 // schemaVersion is stored as PRAGMA user_version: a checksum of the schema's
-// statements (not its comments or spacing), so a real edit refuses a
-// database made before (nothing is released, so there are no migrations;
-// see setUp). Never 0, which is a new database.
+// statements and its number of lines (not comments or spacing within a
+// line), so a real edit refuses a database made before (there are no
+// migrations yet; see setUp). Since v0.1.0 is released, new state goes into
+// kv instead (sessions do), and TestSchemaIsReleased holds it there. Never
+// 0, which is a new database.
 var schemaVersion = func() int32 {
 	var b strings.Builder
 	for line := range strings.Lines(schema) {

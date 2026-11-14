@@ -57,8 +57,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteEntriesOfStmt, err = db.PrepareContext(ctx, deleteEntriesOf); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteEntriesOf: %w", err)
 	}
+	if q.deleteExpiredSessionsStmt, err = db.PrepareContext(ctx, deleteExpiredSessions); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteExpiredSessions: %w", err)
+	}
 	if q.deleteFileStmt, err = db.PrepareContext(ctx, deleteFile); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFile: %w", err)
+	}
+	if q.deleteKVStmt, err = db.PrepareContext(ctx, deleteKV); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteKV: %w", err)
 	}
 	if q.deleteSourceEntriesButStmt, err = db.PrepareContext(ctx, deleteSourceEntriesBut); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteSourceEntriesBut: %w", err)
@@ -270,9 +276,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteEntriesOfStmt: %w", cerr)
 		}
 	}
+	if q.deleteExpiredSessionsStmt != nil {
+		if cerr := q.deleteExpiredSessionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteExpiredSessionsStmt: %w", cerr)
+		}
+	}
 	if q.deleteFileStmt != nil {
 		if cerr := q.deleteFileStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteFileStmt: %w", cerr)
+		}
+	}
+	if q.deleteKVStmt != nil {
+		if cerr := q.deleteKVStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteKVStmt: %w", cerr)
 		}
 	}
 	if q.deleteSourceEntriesButStmt != nil {
@@ -575,7 +591,9 @@ type Queries struct {
 	deleteCatalogStmt          *sql.Stmt
 	deleteDownloadStmt         *sql.Stmt
 	deleteEntriesOfStmt        *sql.Stmt
+	deleteExpiredSessionsStmt  *sql.Stmt
 	deleteFileStmt             *sql.Stmt
+	deleteKVStmt               *sql.Stmt
 	deleteSourceEntriesButStmt *sql.Stmt
 	deleteSourcesButStmt       *sql.Stmt
 	describeStmt               *sql.Stmt
@@ -643,7 +661,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteCatalogStmt:          q.deleteCatalogStmt,
 		deleteDownloadStmt:         q.deleteDownloadStmt,
 		deleteEntriesOfStmt:        q.deleteEntriesOfStmt,
+		deleteExpiredSessionsStmt:  q.deleteExpiredSessionsStmt,
 		deleteFileStmt:             q.deleteFileStmt,
+		deleteKVStmt:               q.deleteKVStmt,
 		deleteSourceEntriesButStmt: q.deleteSourceEntriesButStmt,
 		deleteSourcesButStmt:       q.deleteSourcesButStmt,
 		describeStmt:               q.describeStmt,
