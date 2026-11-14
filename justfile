@@ -61,6 +61,10 @@ demo +names:
 demos:
     bash tools/demo.sh
 
+# Retake the screenshots of zimon serve (docs/img/serve-*.png) on the demo library (chromium and node)
+serve-shots:
+    bash tools/serve-shots.sh
+
 # Report which demo images are out of date, without touching docs/img (all tapes, or the ones named)
 demo-check *names:
     bash tools/demo.sh --check {{names}}

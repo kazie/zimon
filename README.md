@@ -227,6 +227,8 @@ plan is still the one you saw. Whatever you change is written to
 
 ![The admin page](docs/img/serve-admin.png)
 
+![The admin page's Catalog tab, filtered on "wiki"](docs/img/serve-catalog.png)
+
 When only this computer can reach the server, `zimon serve` prints a sign-in
 link that works once (in a terminal, not into a service's log). Otherwise
 sign in with a token from `zimon token add`. A sign-in lasts 30 days (a
@@ -760,6 +762,7 @@ just fuzz 1m          # every fuzz target for a minute each (default 30s)
 just vuln             # known vulnerabilities, with govulncheck
 just generate         # the database code, from its SQL (sqlc)
 just pin-kiwix        # the kiwix-serve release zimon serve fetches, from the Containerfile
+just serve-shots      # the start page and admin page screenshots, in headless Chromium
 ```
 
 The database is SQLite. Its schema (`internal/store/schema.sql`) and queries
