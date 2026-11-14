@@ -7,11 +7,14 @@ import (
 	"github.com/kazie/zimon/internal/cli"
 )
 
-// version is set by release builds with -ldflags "-X main.version=...".
-// Other builds (go install, go build) report the version Go stamps into the
-// binary instead; see cli.resolveVersion.
-var version = "dev"
+// version and commit are set by release builds with -ldflags
+// "-X main.version=... -X main.commit=...". Other builds (go install, go
+// build) report what Go stamps into the binary instead; see cli.Execute.
+var (
+	version = "dev"
+	commit  string
+)
 
 func main() {
-	os.Exit(cli.Execute(version))
+	os.Exit(cli.Execute(version, commit))
 }

@@ -57,6 +57,7 @@ type Backend interface {
 type Local struct {
 	Manager func() (*library.Manager, error) // opens the library on first use
 	Version string                           // zimon's
+	Commit  string                           // zimon's, short; "" when unknown
 	// Lock takes the state lock, calling onWait if another zimon holds it;
 	// TryLock takes it only if it is free.
 	Lock    func(ctx context.Context, onWait func(who string)) (unlock func(), err error)
@@ -85,7 +86,7 @@ func (l *Local) Info(ctx context.Context) (api.Info, error) {
 		return api.Info{}, err
 	}
 	synced, _, count, err := m.Store.CatalogState(ctx)
-	return api.Info{Version: l.Version, API: api.Version, LibraryDir: m.Cfg.LibraryDir, LibraryFile: m.SetupPath,
+	return api.Info{Version: l.Version, Commit: l.Commit, API: api.Version, LibraryDir: m.Cfg.LibraryDir, LibraryFile: m.SetupPath,
 		Languages: m.Cfg.Languages, Entries: count, Synced: api.Time(synced)}, err
 }
 

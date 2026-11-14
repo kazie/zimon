@@ -13,9 +13,10 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-ARG TARGETOS TARGETARCH VERSION=dev
+# .git stays out of the build (.dockerignore), so the commit comes in as COMMIT.
+ARG TARGETOS TARGETARCH VERSION=dev COMMIT=
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o /out/zimon .
+    go build -trimpath -ldflags "-s -w -X main.version=$VERSION -X main.commit=$COMMIT" -o /out/zimon .
 
 # kiwix-serve, busybox and dumb-init on Alpine; it runs as "user" (uid 1001),
 # who owns /data.

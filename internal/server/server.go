@@ -32,7 +32,8 @@ import (
 type Server struct {
 	Manager *library.Manager
 	Logf    func(format string, args ...any) // what happens to kiwix-serve; nil: quiet
-	Version string                           // zimon's, for GET /api/v1/info
+	Version string                           // zimon's, for GET /api/v1/info and the pages' footer
+	Commit  string                           // zimon's, short; "" when unknown
 	// Fetch gets kiwix-serve when it isn't installed; Run keeps trying until
 	// it works. nil: books can't be opened until zimon serve starts again.
 	Fetch func(ctx context.Context) (string, error)

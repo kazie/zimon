@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"sync"
 	"time"
 
@@ -28,6 +27,7 @@ import (
 // app is the state shared by all commands.
 type app struct {
 	version  string
+	commit   string // short, "" when unknown
 	cfgPath  string
 	verbose  bool
 	noColor  bool
@@ -214,14 +214,4 @@ func (a *app) lookup(ctx context.Context, arg string) (family []api.Entry, picke
 		names = append(names, e.Key)
 	}
 	return nil, nil, fmt.Errorf("%s has no flavour %q\n  available: %s", k.Name, k.Flavour, joinStyled(names, ui.Bold))
-}
-
-func resolveVersion(v string) string {
-	if v != "" && v != "dev" {
-		return v
-	}
-	if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
-		return bi.Main.Version
-	}
-	return "dev"
 }

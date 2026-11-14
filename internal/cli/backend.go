@@ -30,6 +30,7 @@ func (a *app) local() *backend.Local {
 	return &backend.Local{
 		Manager: a.manager,
 		Version: a.version,
+		Commit:  a.commit,
 		Lock: func(ctx context.Context, onWait func(string)) (func(), error) {
 			return lock.Acquire(ctx, a.cfg.LockPath(), onWait)
 		},

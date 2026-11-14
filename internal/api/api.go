@@ -28,7 +28,8 @@ type Status struct {
 
 // Info is GET /api/v1/info: the server's zimon and library.
 type Info struct {
-	Version     string   `json:"version"` // zimon's
+	Version     string   `json:"version"`          // zimon's
+	Commit      string   `json:"commit,omitempty"` // zimon's, short; empty when unknown
 	API         int      `json:"api"`
 	LibraryDir  string   `json:"library_dir"`
 	LibraryFile string   `json:"library_file"`

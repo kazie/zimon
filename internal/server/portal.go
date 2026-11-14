@@ -25,11 +25,12 @@ var webFS embed.FS
 
 var (
 	static, _ = fs.Sub(webFS, "web/static")
-	pageTmpl  = template.Must(template.ParseFS(webFS, "web/portal.html"))
+	pageTmpl  = template.Must(template.ParseFS(webFS, "web/portal.html", "web/build.html"))
 )
 
 // portalPage is what the portal shows.
 type portalPage struct {
+	Build    buildInfo // which zimon this is, for the footer
 	Problem  string    // why books can't be opened right now, if they can't
 	Sections []section // one per subscribed collection with books, then the rest
 	Langs    []string  // languages to search in, most books first
@@ -89,7 +90,7 @@ func (s *Server) portalPage(ctx context.Context) (*portalPage, error) {
 		return nil, err
 	}
 
-	page := &portalPage{Problem: s.kiwixProblem()}
+	page := &portalPage{Build: s.buildInfo(), Problem: s.kiwixProblem()}
 	var size int64
 	inSection := map[string][]book{}
 	var other []book

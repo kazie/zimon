@@ -1,0 +1,3 @@
+{{/* Which zimon serves the page, at the foot of the portal and the admin page. */ -}}
+{{define "build"}}<p class="build">zimon {{if .VersionURL}}<a href="{{.VersionURL}}">{{.Version}}</a>{{else}}{{.Version}}{{end}}
+{{- with .Commit}} ({{if $.CommitURL}}<a href="{{$.CommitURL}}">{{.}}</a>{{else}}{{.}}{{end}}){{end}}</p>{{end}}

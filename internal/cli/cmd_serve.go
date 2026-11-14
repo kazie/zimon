@@ -116,7 +116,7 @@ own build, which zimon serve fetches once into the state directory.`,
 				srv.Fetch = fetch
 				a.out.Hint("Fetching kiwix-serve %s from Kiwix; books open once it is here.", kiwix.Version)
 			}
-			srv.Version = a.version
+			srv.Version, srv.Commit = a.version, a.commit
 			srv.Logf = func(format string, args ...any) { a.out.Hint(format, args...) }
 			switch {
 			case adminLn == nil:

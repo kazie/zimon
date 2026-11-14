@@ -32,6 +32,7 @@
             "-s"
             "-w"
             "-X main.version=${version}"
+            "-X main.commit=${self.shortRev or self.dirtyShortRev or ""}"
           ];
           nativeBuildInputs = [ pkgs.installShellFiles ];
           postInstall = pkgs.lib.optionalString (pkgs.stdenv.buildPlatform.canExecute pkgs.stdenv.hostPlatform) ''

@@ -189,7 +189,9 @@ kiwix-serve reads, and it picks up the change by itself, so you never need to
 restart anything. Book URLs leave out the release date
 (`/content/wikipedia_en_all_nopic/`), so bookmarks keep working after updates.
 Book icons come from the Kiwix catalog the first time the page shows them and
-are kept, so the page works offline afterwards.
+are kept, so the page works offline afterwards. The footer, here and on the
+admin page, says which zimon serves it: its version and commit, linked to
+the release notes and the commit on GitHub (`zimon --version` says the same).
 
 ```sh
 zimon serve                    # http://127.0.0.1:8080, this computer only
@@ -254,7 +256,7 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/items
 | Endpoint | What it gives |
 |---|---|
 | `GET /api/v1/status` | the health check, and the API version (no token needed) |
-| `GET /api/v1/info` | the server's zimon and library: version, paths, languages, catalog |
+| `GET /api/v1/info` | the server's zimon and library: version and commit, paths, languages, catalog |
 | `GET /api/v1/items` | everything in the library, as `zimon list --json` |
 | `GET /api/v1/collections` | collections, your levels and the size of each level |
 | `GET /api/v1/collections/ID` | what a collection holds, as `zimon collections show` |

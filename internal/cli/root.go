@@ -15,6 +15,7 @@ import (
 	"charm.land/fang/v2"
 	"github.com/spf13/cobra"
 
+	"github.com/kazie/zimon/internal/buildinfo"
 	"github.com/kazie/zimon/internal/client"
 	"github.com/kazie/zimon/internal/ui"
 )
@@ -23,8 +24,9 @@ import (
 var errSilent = errors.New("")
 
 // Execute runs zimon and returns the process exit code.
-func Execute(version string) int {
-	return run(&app{version: resolveVersion(version)})
+func Execute(version, commit string) int {
+	version, commit = buildinfo.Resolve(version, commit)
+	return run(&app{version: version, commit: commit})
 }
 
 // run is Execute with a prepared app; the script tests use it to set options.
@@ -59,7 +61,7 @@ func run(a *app) int {
 	// Fang draws the help. Errors stay zimon's (below), so they look like
 	// every other failure, and so do signals and the man page (cmd_man.go).
 	err := fang.Execute(ctx, root,
-		fang.WithVersion(a.version),
+		fang.WithVersion(buildinfo.Line(a.version, a.commit)),
 		fang.WithoutManpage(),
 		fang.WithColorSchemeFunc(fang.AnsiColorScheme), // follows the terminal's theme, like ui
 		fang.WithErrorHandler(func(io.Writer, fang.Styles, error) {}),
@@ -140,7 +142,6 @@ offline copies of Wikipedia, Stack Exchange, Project Gutenberg and more.
   zimon browse                    pick ZIMs interactively
 
 What you want is kept in library.toml; edit it and run 'zimon apply'.`,
-		Version:       a.version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {

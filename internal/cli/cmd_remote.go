@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kazie/zimon/internal/buildinfo"
 	"github.com/kazie/zimon/internal/client"
 	"github.com/kazie/zimon/internal/config"
 	"github.com/kazie/zimon/internal/remote"
@@ -171,7 +172,7 @@ func (a *app) askVersion(ctx context.Context, r remote.Remote) (version string, 
 		if err != nil {
 			return "", nil, err
 		}
-		return "zimon " + info.Version, nil, nil
+		return "zimon " + buildinfo.Line(info.Version, info.Commit), nil, nil
 	}
 	argv, err := r.SSH(a.cfg.Remote.SSHCommand, remote.Batch, []string{"--version"})
 	if err != nil {

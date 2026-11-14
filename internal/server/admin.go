@@ -40,6 +40,7 @@ const (
 
 var (
 	loginTmpl     = template.Must(template.ParseFS(webFS, "web/login.html"))
+	adminTmpl     = template.Must(template.ParseFS(webFS, "web/admin.html", "web/build.html"))
 	elsewhereTmpl = template.Must(template.New("").Parse(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>zimon admin</title><link rel="stylesheet" href="/_zimon/portal.css"></head>
@@ -189,8 +190,9 @@ func (s *Server) adminPage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	data, _ := webFS.ReadFile("web/admin.html")
-	_, _ = w.Write(data)
+	if err := adminTmpl.Execute(w, s.buildInfo()); err != nil {
+		s.logf("admin page: %v", err)
+	}
 }
 
 func (s *Server) loginPage(w http.ResponseWriter, code int, problem string) {

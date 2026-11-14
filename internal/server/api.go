@@ -124,7 +124,7 @@ func writeError(w http.ResponseWriter, code int, msg string) {
 // library answers reads and previews the same way the CLI does here. Jobs
 // don't Run through it: runJob takes the state lock itself.
 func (s *Server) library() *backend.Local {
-	return &backend.Local{Manager: func() (*library.Manager, error) { return s.Manager, nil }, Version: s.Version}
+	return &backend.Local{Manager: func() (*library.Manager, error) { return s.Manager, nil }, Version: s.Version, Commit: s.Commit}
 }
 
 // answer writes v, or err as a server error.
