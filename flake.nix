@@ -26,7 +26,7 @@
           # Update after changing go.mod or importing a package not used before (only
           # imported packages are vendored): build, copy the "got:" hash. On Dependabot's
           # Go modules PRs, the Nix workflow's vendor-hash job does it.
-          vendorHash = "sha256-H3u7hVga0nlW0a4xkdqE7F62+dEmzPYd2HgugwfWMt8=";
+          vendorHash = "sha256-FAFyLWYFge7bhYn0djXElKcNXdrMslRlH/hY88lLZ8g=";
           subPackages = [ "." ];
           env.CGO_ENABLED = 0;
           ldflags = [
