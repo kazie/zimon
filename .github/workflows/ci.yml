@@ -4,6 +4,7 @@ on:
   push:
     branches: [master]
   pull_request:
+  workflow_dispatch: # Nix's vendor-hash job starts CI on a Dependabot branch after pushing a fix
 
 permissions:
   contents: read

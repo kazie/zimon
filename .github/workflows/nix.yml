@@ -1,24 +1,67 @@
 name: Nix
 
-# The flake, checked when what it depends on changes: its vendorHash goes
-# stale with every go.mod change, and nothing else in CI uses Nix. flake check
-# builds and tests the package in the Nix sandbox, and evaluates the dev shell
-# without downloading it.
+# The flake: flake check builds and tests the package in the Nix sandbox, and evaluates the dev shell
+# without downloading it. It runs on every PR because `flake` is a required check (ruleset "master needs
+# CI"), and a required check that a path filter skips would block the PR forever.
+#
+# The package's vendorHash goes stale with every go.mod change. On a Dependabot Go modules PR, vendor-hash
+# reads the right one from the failed build, commits it to the PR, and starts CI and Nix on the branch by
+# hand: a commit pushed with GITHUB_TOKEN starts no workflows, but workflow_dispatch is the exception. Their
+# checks land on the new commit, so the PR's auto-merge goes ahead. If Nix failed for any other reason,
+# vendor-hash fails too and dependabot-attention.yml assigns the PR to the owner.
 on:
   push:
     branches: [master]
     paths: [go.mod, go.sum, flake.nix, flake.lock]
   pull_request:
-    paths: [go.mod, go.sum, flake.nix, flake.lock]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  flake:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: cachix/install-nix-action@v31
       - run: nix flake check -L
+
+  vendor-hash:
+    needs: flake
+    if: >-
+      failure() && github.event_name == 'pull_request' &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      startsWith(github.head_ref, 'dependabot/go_modules/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the fix to the PR branch
+      actions: write # start CI and Nix on it
+    env:
+      BRANCH: ${{ github.head_ref }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: cachix/install-nix-action@v31
+      - name: Put the right vendorHash in flake.nix
+        run: |
+          got=$(nix build --no-link .#default 2>&1 | sed -nE 's/^ *got: *(sha256-[A-Za-z0-9+/=]+).*/\1/p' | head -1)
+          if [ -z "$got" ]; then
+            echo "::error::Nix failed for another reason than a stale vendorHash; leaving it to a person"
+            exit 1
+          fi
+          sed -i -E "s|vendorHash = \"sha256-[A-Za-z0-9+/=]+\";|vendorHash = \"$got\";|" flake.nix
+          if git diff --quiet flake.nix; then
+            echo "::error::vendorHash is already $got, so Nix failed for another reason"
+            exit 1
+          fi
+      - name: Commit it to the PR, then start CI and Nix on it
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "build(nix): update vendorHash" flake.nix
+          git push -q
+          gh workflow run ci.yml --ref "$BRANCH"
+          gh workflow run nix.yml --ref "$BRANCH"
