@@ -5,10 +5,12 @@ name: Nix
 # CI"), and a required check that a path filter skips would block the PR forever.
 #
 # The package's vendorHash goes stale with every go.mod change. On a Dependabot Go modules PR, vendor-hash
-# reads the right one from the failed build, commits it to the PR, and starts CI and Nix on the branch by
-# hand: a commit pushed with GITHUB_TOKEN starts no workflows, but workflow_dispatch is the exception. Their
-# checks land on the new commit, so the PR's auto-merge goes ahead. If Nix failed for any other reason,
-# vendor-hash fails too and dependabot-attention.yml assigns the PR to the owner.
+# reads the right one from the failed build and commits it to the PR. GitHub holds the PR's workflow runs
+# for that commit for approval ("action_required"), as for any commit pushed with GITHUB_TOKEN, so the job
+# approves them; they run, and the PR's auto-merge goes ahead. (Runs started by workflow_dispatch instead
+# don't count for a PR's checks: tried 2026-11-21 on #7.) If the approval is refused, the PR is assigned to
+# the owner with a comment saying what to click. If Nix failed for any other reason, vendor-hash fails too
+# and dependabot-attention.yml assigns the PR.
 on:
   push:
     branches: [master]
@@ -36,9 +38,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # push the fix to the PR branch
-      actions: write # start CI and Nix on it
+      actions: write # approve the runs GitHub holds for it
+      pull-requests: write # fallback: assign and comment
+      issues: write
     env:
-      BRANCH: ${{ github.head_ref }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      OWNER: ${{ github.repository_owner }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
@@ -57,11 +62,32 @@ jobs:
             echo "::error::vendorHash is already $got, so Nix failed for another reason"
             exit 1
           fi
-      - name: Commit it to the PR, then start CI and Nix on it
+      - name: Commit it to the PR
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -q -m "build(nix): update vendorHash" flake.nix
           git push -q
-          gh workflow run ci.yml --ref "$BRANCH"
-          gh workflow run nix.yml --ref "$BRANCH"
+          echo "SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Approve the runs GitHub holds for the new commit
+        run: |
+          # The held runs show up a few seconds after the push; CI, Nix and Dependabot auto-merge make 3.
+          ids=
+          for _ in $(seq 12); do
+            sleep 5
+            ids=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA&status=action_required" \
+              -q '.workflow_runs[].id')
+            [ "$(echo "$ids" | grep -c .)" -ge 3 ] && break
+          done
+          ok=yes
+          [ -n "$ids" ] || ok=no
+          for id in $ids; do
+            gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$id/approve" --silent || ok=no
+          done
+          if [ "$ok" = no ]; then
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/assignees" -f "assignees[]=$OWNER" --silent
+            gh pr comment "$PR_NUMBER" --body "vendorHash is updated, but the workflow runs for that commit are \
+          waiting for approval and this job couldn't approve them. Checks tab → **Approve and run workflows**; \
+          auto-merge does the rest."
+            exit 1
+          fi
