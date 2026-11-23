@@ -33,9 +33,30 @@ checksum:
   name_template: checksums.txt
 
 changelog:
+  use: github # each line links its commit and @author
   sort: asc
+  abbrev: 7
   filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
-      - "^chore:"
+    # Allowlist: only release-relevant Conventional Commit types reach the
+    # notes, which drops merge commits, docs/test/chore/style and anything
+    # that is not a Conventional Commit.
+    include:
+      - '^(feat|fix|perf|refactor|build|ci|revert)(\([^)]*\))?!?:'
+  groups:
+    - title: Breaking changes
+      regexp: '^.*?[a-z]+(\([^)]*\))?!:.+$'
+      order: 0
+    - title: Features
+      regexp: '^.*?feat(\([^)]*\))?:.+$'
+      order: 1
+    - title: Bug fixes
+      regexp: '^.*?fix(\([^)]*\))?:.+$'
+      order: 2
+    - title: Performance
+      regexp: '^.*?perf(\([^)]*\))?:.+$'
+      order: 3
+    - title: Dependencies
+      regexp: '^.*?build\(deps\):.+$'
+      order: 4
+    - title: Build, CI and other changes
+      order: 999
