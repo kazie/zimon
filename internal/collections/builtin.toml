@@ -316,7 +316,7 @@ deep = [
   { name = "economics.stackexchange.com_en_all", note = "Economics Q&A" },
 ]
 giant = [
-  { name = "gutenberg_en_lcc-d", note = "Project Gutenberg world history books (40 GB)" },
+  { name = "gutenberg_en_lcc-cdef", note = "Project Gutenberg history books (47 GB)" },
 ]
 
 [[collection]]
